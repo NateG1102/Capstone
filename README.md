@@ -1,2 +1,2 @@
 # Capstone
-Senior capstone project of a website called Naia
+Senior capstone project of a website called
