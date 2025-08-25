@@ -1,2 +1,2 @@
 # Capstone
-Senior capstone project of a website called Ganiyu
+Senior capstone project of a website called nate
