@@ -1,2 +1,2 @@
 # Capstone
-Senior capstone project of a website called Naida
+Senior capstone project of a website called 
