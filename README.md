@@ -1,2 +1,2 @@
 # Capstone
-Senior capstone project of a website called Quan
+Senior capstone project of a website called StockSyncer
