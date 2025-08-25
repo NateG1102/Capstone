@@ -1,2 +1,2 @@
 # Capstone
-Senior capstone project of a website called 123
+Senior capstone project of a website called laquan
