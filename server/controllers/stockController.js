@@ -1,62 +1,41 @@
 const axios = require('axios');
+const AV_BASE = 'https://www.alphavantage.co/query';
+const KEY = process.env.STOCK_API_KEY;
+
+const limitHit = (d) => d && (d.Note || d.Information || d['Error Message']);
 
 exports.getStockPrice = async (req, res) => {
-  const { symbol } = req.params;
-  const API_KEY = process.env.STOCK_API_KEY;
-
   try {
-    const response = await axios.get(`https://www.alphavantage.co/query`, {
-      params: {
-        function: 'GLOBAL_QUOTE',
-        symbol: symbol,
-        apikey: API_KEY
-      }
-    });
-
-    const data = response.data['Global Quote'];
-    if (!data) return res.status(404).json({ error: 'Stock not found' });
-
+    const symbol = (req.params.symbol || 'AAPL').toUpperCase();
+    const r = await axios.get(AV_BASE, { params: { function:'GLOBAL_QUOTE', symbol, apikey: KEY } });
+    if (limitHit(r.data)) return res.status(429).json({ error: 'Alpha Vantage limit or error', detail: r.data });
+    const q = r.data['Global Quote'];
+    if (!q) return res.status(404).json({ error: 'No quote' });
     res.json({
-      symbol: data['01. symbol'],
-      price: data['05. price'],
-      change: data['09. change'],
-      changePercent: data['10. change percent']
+      symbol: q['01. symbol'],
+      price: q['05. price'],
+      change: q['09. change'],
+      changePercent: q['10. change percent']
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch stock data' });
+  } catch (e) {
+    res.status(500).json({ error: 'Upstream error', detail: e?.message });
   }
 };
 
-// NEW: Historical Data
-exports.getHistoricalData = async (req, res) => {
-  const { symbol } = req.params;
-  const API_KEY = process.env.STOCK_API_KEY;
-
+exports.getHistoricalDaily = async (req, res) => {
   try {
-    const response = await axios.get(`https://www.alphavantage.co/query`, {
-      params: {
-        function: 'TIME_SERIES_DAILY_ADJUSTED',
-        symbol: symbol,
-        outputsize: 'full',
-        apikey: API_KEY
-      }
+    const symbol = (req.params.symbol || 'AAPL').toUpperCase();
+    const r = await axios.get(AV_BASE, {
+      params: { function:'TIME_SERIES_DAILY_ADJUSTED', symbol, outputsize:'full', apikey: KEY }
     });
-
-    const timeSeries = response.data['Time Series (Daily)'];
-    if (!timeSeries) return res.status(404).json({ error: 'No historical data' });
-
-    // Convert object to array for frontend charts
-    const formattedData = Object.entries(timeSeries)
-      .map(([date, values]) => ({
-        date,
-        close: parseFloat(values['4. close'])
-      }))
-      .reverse(); // oldest to newest
-
-    res.json(formattedData);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch historical data' });
+    if (limitHit(r.data)) return res.status(429).json({ error: 'Alpha Vantage limit or error', detail: r.data });
+    const ts = r.data['Time Series (Daily)'];
+    if (!ts) return res.status(404).json({ error: 'No historical data' });
+    const rows = Object.entries(ts)
+      .map(([date, v]) => ({ date, close: parseFloat(v['4. close']) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    res.json({ symbol, rows });
+  } catch (e) {
+    res.status(500).json({ error: 'Upstream error', detail: e?.message });
   }
 };

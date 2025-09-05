@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getStockPrice, getHistoricalData } from '../services/stockAPI';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import StockChatBox from '../components/StockChatBox';
+
 
 export default function Home() {
   const [stock, setStock] = useState(null);
@@ -34,6 +36,8 @@ export default function Home() {
           <Line type="monotone" dataKey="close" stroke="#8884d8" />
         </LineChart>
       </ResponsiveContainer>
+      <StockChatBox symbol={symbol} rows={sliced} />
+
     </div>
   );
 }

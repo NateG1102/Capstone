@@ -1,8 +1,7 @@
-const express = require('express');
-const router = express.Router();
-const stockController = require('../controllers/stockController');
+const router = require('express').Router();
+const { getStockPrice, getHistoricalDaily } = require('../controllers/stockController');
 
-router.get('/price/:symbol', stockController.getStockPrice);
-router.get('/history/:symbol', stockController.getHistoricalData);
+router.get('/price/:symbol', getStockPrice);
+router.get('/history/:symbol', getHistoricalDaily);
 
 module.exports = router;

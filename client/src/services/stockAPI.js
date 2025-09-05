@@ -1,6 +1,4 @@
 import axios from 'axios';
-
-const API_BASE = 'http://localhost:5000/api/stocks';
-
-export const getStockPrice = (symbol) => axios.get(`${API_BASE}/price/${symbol}`);
-export const getHistoricalData = (symbol) => axios.get(`${API_BASE}/history/${symbol}`);
+const API = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8081';
+export const fetchPrice = (symbol) => axios.get(`${API}/api/stocks/price/${symbol}`);
+export const fetchHistory = (symbol) => axios.get(`${API}/api/stocks/history/${symbol}`);
