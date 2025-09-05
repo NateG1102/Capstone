@@ -1,2 +1,2 @@
 # Capstone
-Senior capstone project of a website called StockSyncer
+Senior capstone project of a website called StockSyncer.
