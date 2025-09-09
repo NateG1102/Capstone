@@ -1,19 +1,13 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// client/src/App.js
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
-import StockDetails from './pages/StockDetails';
-import Navbar from './components/Navbar';
 
-function App() {
+export default function App() {
   return (
-    <Router>
-      <Navbar />
+    <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/stock/:symbol" element={<StockDetails />} />
+        <Route path="/" element={<Home/>} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
-
-export default App;
