@@ -12,10 +12,13 @@ build/
 **/.eslintcache
 
 # env & local config
+.env
 *.env
-*.env.*        # .env.local, .env.development, etc.
-client/.env
 server/.env
+client/.env
+.env.local
+server/.env.local
+client/.env.local
 
 # logs
 *.log
