@@ -11,7 +11,7 @@ build/
 **/.cache/
 **/.eslintcache
 
-# env & local config
+# --- ENV files: ignore real secrets
 .env
 *.env
 server/.env
@@ -19,6 +19,11 @@ client/.env
 .env.local
 server/.env.local
 client/.env.local
+
+# --- BUT allow the safe templates:
+!server/.env.example
+!client/.env.example
+
 
 # logs
 *.log
