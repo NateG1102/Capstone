@@ -1,43 +1,31 @@
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-// POST /api/chat  { message, symbol?, context? }
-exports.postChat = async (req, res) => {
+const axios = require('axios');
+
+const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
+
+// POST /api/chat
+// body: { message, symbol?, context? }
+exports.chat = async (req, res) => {
+  const { message = '', symbol = '', context = '' } = req.body || {};
+
+  // no key → stub so the UI always gets a reply
+  if (!OPENAI_KEY) {
+  const summary = context ? `Context: ${context}.` : '';
+  return res.json({
+    role: 'assistant',
+    content: `(${symbol || 'N/A'}) Got it. ${summary}`.trim()
+  });
+}
+
   try {
-    const { message, symbol, context } = req.body || {};
-    const userMsg = String(message || '').trim();
-    const ticker = (symbol || '').toUpperCase();
+    // real model call goes here (kept simple for now)
+    // const r = await axios.post('https://api.openai.com/v1/chat/completions', {...}, { headers:{ Authorization:`Bearer ${OPENAI_KEY}` }});
+    // const content = r.data?.choices?.[0]?.message?.content || 'No content';
+    const content = `(${symbol || 'N/A'}) ${message || 'OK'}. Context: ${context || 'n/a'}.`;
 
-    const systemPrompt =
-      `You are a helpful stock education assistant. Do not provide financial advice.
-       Keep answers short and clear. ${ticker ? `Ticker: ${ticker}.` : ''} ${context ? `Context: ${context}` : ''}`;
-
-    if (!OPENAI_KEY) {
-      return res.json({
-        role: 'assistant',
-        content: `Stub reply for ${ticker || 'N/A'} — you said: "${userMsg}". (Set OPENAI_API_KEY to enable real answers.)`
-      });
-    }
-
-    const r = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gpt-5',
-        input: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMsg }
-        ],
-        temperature: 0.3
-      })
-    });
-    const data = await r.json();
-    const text =
-      data?.output_text ||
-      data?.content?.[0]?.text ||
-      data?.choices?.[0]?.message?.content ||
-      'No response';
-    res.json({ role: 'assistant', content: text });
-  } catch (e) {
-    res.json({ role: 'assistant', content: 'Chat temporarily unavailable.' });
+    return res.json({ role: 'assistant', content });
+  } catch (err) {
+    console.error('[chat]', err.message);
+    return res.status(500).json({ role: 'assistant', content: 'Chat error.' });
   }
 };

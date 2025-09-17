@@ -1,4 +1,7 @@
 const router = require('express').Router();
-const { postChat } = require('../controllers/chatController');
-router.post('/', postChat);
+const { chat } = require('../controllers/chatController');
+
+// POST /api/chat
+router.post('/', chat);
+
 module.exports = router;

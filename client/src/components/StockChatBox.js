@@ -1,58 +1,59 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+
+import { useState } from 'react';
 import { askChat } from '../services/chatAPI';
 
-export default function StockChatBox({ symbol, rows = [] }) {
-  const [messages, set] = useState([
-    { role: 'assistant', content: `Ask me about ${symbol}. Educational only — not financial advice.` }
-  ]);
-  const [typing, setTyping] = useState(false);
-  const inputRef = useRef(null);
-  const logRef = useRef(null);
-
-  const context = useMemo(() => {
-    if (!rows.length) return '';
-    const last = rows.at(-1)?.close;
-    const w = rows.slice(-7).map(r => r.close);
-    const change = w.length > 1 ? ((w.at(-1) - w[0]) / w[0]) * 100 : 0;
-    return `Latest close ≈ ${last}. ~1w change ≈ ${Number.isFinite(change) ? change.toFixed(2) : '0.00'}%.`;
-  }, [rows]);
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, typing]);
+export default function StockChatBox({ symbol, context }) {
+  const [text, setText] = useState('');
+  const [msgs, setMsgs] = useState([]);
 
   async function send() {
-    const text = inputRef.current.value.trim();
-    if (!text) return;
-    inputRef.current.value = '';
-    set(m => [...m, { role: 'user', content: text }]);
-    setTyping(true);
+    const content = text.trim();
+    if (!content) return;
+
+    // add user msg
+    setMsgs((m) => [...m, { role: 'user', content }]);
+    setText('');
+
     try {
-      const r = await askChat(text, { symbol, context });
-      const reply = r?.data?.content || 'No reply.';
-      set(m => [...m, { role: 'assistant', content: reply }]);
-    } catch {
-      set(m => [...m, { role: 'assistant', content: 'Chat temporarily unavailable.' }]);
-    } finally {
-      setTyping(false);
+      const res = await askChat(content, { symbol, context });
+      const reply = res?.data?.content || 'No reply.';
+      setMsgs((m) => [...m, { role: 'assistant', content: reply }]);
+    } catch (err) {
+      console.error('chat', err);
+      setMsgs((m) => [...m, { role: 'assistant', content: 'Chat error.' }]);
     }
+  }
+
+  function onKeyDown(e) {
+    if (e.key === 'Enter') send();
   }
 
   return (
     <div className="stock-chatbox">
-      <div className="stock-chatlog" ref={logRef}>
-        {messages.map((m, i) => (
+      {/* header */}
+      <h3 style={{ marginTop: 0 }}>Ask about {symbol}</h3>
+
+      {/* messages */}
+      <div className="stock-chatlog">
+        {msgs.map((m, i) => (
           <div key={i} className={`stock-message ${m.role}`}>{m.content}</div>
         ))}
-        {typing && <div className="stock-message assistant">…</div>}
       </div>
+
+      {/* input */}
       <div className="stock-chatinput">
         <input
-          ref={inputRef}
-          placeholder={`Ask about ${symbol}…`}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder={`Ask about ${symbol || 'this stock'}…`}
         />
-        <button onClick={send}>Send</button>
+        <button type="button" onClick={send}>Send</button>
+      </div>
+
+      {/* note */}
+      <div className="small muted" style={{ marginTop: 8 }}>
+        Educational only — not financial advice.
       </div>
     </div>
   );

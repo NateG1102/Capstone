@@ -147,8 +147,15 @@ export default function Home() {
       {/* Per-stock chat */}
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Ask about {symbol}</h3>
-        <StockChatBox symbol={symbol} rows={data} />
-        <div className="muted small">Answers are for learning only — not financial advice.</div>
+        <StockChatBox
+    symbol={symbol}
+    context={
+      price && price.price
+        ? `${symbol} | last ${Number(price.price).toFixed(2)} | Δ ${Number(price.change || 0).toFixed(2)} (${price.changePercent})`
+        : `${symbol} | no price yet`
+    }
+  />
+  <div className="muted small">Answers are for learning only — not financial advice.</div>
       </div>
     </div>
   );

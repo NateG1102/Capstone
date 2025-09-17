@@ -11,7 +11,6 @@ if (!container) {
 
 const root = ReactDOM.createRoot(container);
 root.render(
-  // You can keep StrictMode; comment it out while debugging if you want
   // <React.StrictMode>
     <App />
   // </React.StrictMode>
