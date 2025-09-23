@@ -5,7 +5,7 @@ const pool = new Pool({
   port: Number(process.env.PGPORT) || 5432,
   database: process.env.PGDATABASE || 'stockdash',
   user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || 'postgres',
+  password: process.env.PGPASSWORD || '8585',
   max: 10,
   idleTimeoutMillis: 30_000,
 });
