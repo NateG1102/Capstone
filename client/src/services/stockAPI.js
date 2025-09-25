@@ -10,3 +10,7 @@ export const fetchHistory = (symbol) => axios.get(`${API}/api/stocks/history/${s
 // compatibility exports so existing imports keep working
 export const getStockPrice = fetchPrice;
 export const getHistoricalData = fetchHistory;
+
+// list latest quotes from DB
+export const listQuotes = (limit = 25, offset = 0) =>
+  axios.get(`${API}/api/stocks/quotes`, { params: { limit, offset } });

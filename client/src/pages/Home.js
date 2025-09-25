@@ -3,6 +3,7 @@ import { fetchPrice, fetchHistory } from '../services/stockAPI';
 import { fetchNews } from '../services/newsAPI';
 import { fetchOwnership } from '../services/ownershipAPI';
 import StockChatBox from '../components/StockChatBox';
+import QuotesTable from '../components/QuotesTable';
 
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
@@ -143,7 +144,9 @@ export default function Home() {
           </table>
         </div>
       </div>
-
+      {/* Market quotes table (DB) */}
+      <QuotesTable />
+      
       {/* Per-stock chat */}
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Ask about {symbol}</h3>

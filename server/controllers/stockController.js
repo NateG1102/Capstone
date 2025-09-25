@@ -5,18 +5,20 @@ const pool = require('../db/pool');
 const AV_BASE = 'https://www.alphavantage.co/query';
 const KEY = process.env.STOCK_API_KEY;
 
-// basic rate-limit/error check from AV
+// Alpha Vantage error / rate-limit check
 const limitHit = (d) => d && (d.Note || d.Information || d['Error Message']);
 
 // cache ttl for quotes
 const QUOTE_TTL_SECONDS = 60;
+// how many history rows before we serve from DB
+const HISTORY_MIN_ROWS = 250;
 
-// GET /api/stocks/price/:symbol
-exports.getStockPrice = async (req, res) => {
+// ---------- PRICE ----------
+async function getStockPrice(req, res) {
   try {
     const symbol = (req.params.symbol || 'AAPL').toUpperCase();
 
-    // try cache first
+    // try DB cache first
     const { rows: cached } = await pool.query(
       `select price, change, change_percent, fetched_at
          from quotes
@@ -35,7 +37,7 @@ exports.getStockPrice = async (req, res) => {
       });
     }
 
-    // fetch from AV
+    // fetch from Alpha Vantage
     const r = await axios.get(AV_BASE, {
       params: { function: 'GLOBAL_QUOTE', symbol, apikey: KEY }
     });
@@ -47,10 +49,10 @@ exports.getStockPrice = async (req, res) => {
 
     const price = Number(q['05. price']);
     const change = Number(q['09. change']);
-    const changePercentStr = q['10. change percent'] || '';     // like "0.53%"
+    const changePercentStr = q['10. change percent'] || ''; // "0.53%"
     const changePercentNum = Number(changePercentStr.replace('%', '').trim());
 
-    // upsert into cache
+    // upsert into quotes
     await pool.query(
       `insert into quotes(symbol, price, change, change_percent, fetched_at)
        values($1, $2, $3, $4, now())
@@ -70,13 +72,10 @@ exports.getStockPrice = async (req, res) => {
     console.error('getStockPrice', e.message);
     res.status(500).json({ error: 'Upstream error', detail: e?.message });
   }
-};
+}
 
-// how many rows before we serve from DB
-const HISTORY_MIN_ROWS = 250;
-
-// GET /api/stocks/history/:symbol
-exports.getHistoricalDaily = async (req, res) => {
+// ---------- HISTORY ----------
+async function getHistoricalDaily(req, res) {
   try {
     const symbol = (req.params.symbol || 'AAPL').toUpperCase();
 
@@ -135,4 +134,30 @@ exports.getHistoricalDaily = async (req, res) => {
     console.error('getHistoricalDaily', e.message);
     res.status(500).json({ error: 'Upstream error', detail: e?.message });
   }
+}
+
+// ---------- LIST QUOTES (for table/grid) ----------
+async function listQuotes(req, res) {
+  try {
+    const limit  = Math.min(Number(req.query.limit || 50), 200);
+    const offset = Math.max(Number(req.query.offset || 0), 0);
+    const { rows } = await pool.query(
+      `select symbol, price, change, change_percent, fetched_at
+         from quotes
+        order by fetched_at desc
+        limit $1 offset $2`,
+      [limit, offset]
+    );
+    res.json({ items: rows, limit, offset });
+  } catch (e) {
+    console.error('listQuotes', e.message);
+    res.status(500).json({ error: e.message });
+  }
+}
+
+// export all in one place
+module.exports = {
+  getStockPrice,
+  getHistoricalDaily,
+  listQuotes,
 };
