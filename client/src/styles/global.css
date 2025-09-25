@@ -214,3 +214,28 @@ body.light .row input,
 body.light .card,
 body.light .stock-chatbox { backdrop-filter: none; }
 body.light .row button { color:#fff; }
+
+/* inputs */
+.input{
+  background: var(--bg1);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+}
+.input:focus{
+  border-color: hsla(200 100% 60% / .6);
+  box-shadow: 0 0 0 3px hsla(200 100% 60% / .15);
+}
+
+/* make table match cards */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th, .table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
