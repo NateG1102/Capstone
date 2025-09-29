@@ -1,3 +1,4 @@
+// src/pages/StockDetails.js
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchPrice, fetchHistory } from '../services/stockAPI';
@@ -17,37 +18,53 @@ export default function StockDetails() {
   const [ownership, setOwnership] = useState([]);
 
   useEffect(() => {
-    let isMounted = true; // ✅ ADDED: prevents setState after unmount
+  let isMounted = true;
+  setLoading(true);
 
-    (async () => {
-      setLoading(true);
-      try {
-        const [p, h, n, o] = await Promise.all([
-          fetchPrice(symbol),
-          fetchHistory(symbol),
-          fetchNews(symbol),
-          fetchOwnership(symbol),
-        ]);
-        if (!isMounted) return; // ✅ ADDED
-        setPrice(p?.data || null);
-        setRows(h?.data?.rows || h?.data || []);
-        setNews(n?.data?.articles || []);
-        setOwnership(o?.data?.holders || []);
-      } catch (err) { // ✅ ADDED: catch Axios "Network Error" etc.
-        console.error('Failed to load data:', err?.message || err);
-        if (!isMounted) return; // ✅ ADDED
-        // Optional: clear to keep UI stable
-        setPrice(null);
-        setRows([]);
-        setNews([]);
-        setOwnership([]);
-      } finally {
-        if (isMounted) setLoading(false); // ✅ ADDED guard
-      }
-    })();
+  (async () => {
+    const [p, h, n, o] = await Promise.allSettled([
+      fetchPrice(symbol),
+      fetchHistory(symbol),
+      fetchNews(symbol, 8, 30),
+      fetchOwnership(symbol),
+    ]);
 
-    return () => { isMounted = false; }; // ✅ ADDED cleanup
-  }, [symbol]);
+    if (!isMounted) return;
+
+    // price
+    if (p.status === 'fulfilled') setPrice(p.value?.data || null);
+    else setPrice(null);
+
+    // history
+    if (h.status === 'fulfilled') {
+      const hr = h.value?.data?.rows ?? h.value?.data ?? [];
+      setRows(Array.isArray(hr) ? hr : []);
+    } else {
+      setRows([]);
+    }
+
+    // news
+    if (n.status === 'fulfilled') {
+      const items = Array.isArray(n.value?.data?.items) ? n.value.data.items : [];
+      setNews(items);
+    } else {
+      setNews([]);
+    }
+
+    // ownership
+    if (o.status === 'fulfilled') {
+      const holders = Array.isArray(o.value?.data?.holders) ? o.value.data.holders : [];
+      setOwnership(holders);
+    } else {
+      setOwnership([]);
+    }
+
+    setLoading(false);
+  })();
+
+  return () => { isMounted = false; };
+}, [symbol]);
+
 
   const last180 = useMemo(() => rows.slice(-180), [rows]);
 
@@ -99,9 +116,15 @@ export default function StockDetails() {
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {news.slice(0,10).map((a, i) => (
                 <li key={i} style={{ marginBottom: 8 }}>
-                  <a href={a.url} target="_blank" rel="noreferrer">{a.title}</a>
+                  {/* Alpha Vantage NEWS_SENTIMENT uses `link` */}
+                  <a href={a.link} target="_blank" rel="noreferrer">{a.title}</a>
                   {a.source && <span className="small muted"> — {a.source}</span>}
                   {a.publishedAt && <div className="small muted">{new Date(a.publishedAt).toLocaleString()}</div>}
+                  {typeof a.sentimentScore === 'number' && a.sentimentLabel ? (
+                    <div className="small muted">
+                      {a.sentimentLabel} ({a.sentimentScore.toFixed(2)})
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
