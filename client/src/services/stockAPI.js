@@ -17,3 +17,12 @@ export const getHistoricalData = fetchHistory;
 // list latest quotes from DB
 export const listQuotes = (limit = 25, offset = 0) =>
   axios.get(`${API}/api/stocks/quotes`, { params: { limit, offset } });
+
+
+// In src/services/stockAPI.js
+export async function fetchProfile(symbol) {
+  // adapt to your backend; return an object with a name field
+  const res = await fetch(`/api/profile?symbol=${encodeURIComponent(symbol)}`);
+  const data = await res.json();
+  return { data }; // expected { data: { companyName / longName / shortName / name / company } }
+}
