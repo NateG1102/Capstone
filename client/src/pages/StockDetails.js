@@ -66,7 +66,65 @@ export default function StockDetails() {
 }, [symbol]);
 
 
-  const last180 = useMemo(() => rows.slice(-180), [rows]);
+  // === Range state, slicer, and helpers ===
+const [range, setRange] = useState('1m'); // '1w' | '1m' | '6m' | '1y'
+
+const rangedRows = useMemo(() => {
+  if (!rows?.length) return [];
+  const days =
+    range === '1w' ? 7 :
+    range === '1m' ? 30 :
+    range === '6m' ? 182 : 365;
+
+  // figure out cutoff date
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+
+  // rows may have date as string; normalize and add 'iso' for XAxis
+  const within = rows.filter(r => {
+    const d = r.date instanceof Date ? r.date : new Date(r.date);
+    return d >= cutoff;
+  });
+
+  const data = (within.length ? within : rows).map(r => {
+    const d = r.date instanceof Date ? r.date : new Date(r.date);
+    return { ...r, iso: d.toISOString() };
+  });
+
+  return data;
+}, [rows, range]);
+
+// formatters
+const fmtX = (iso) => {
+  const d = new Date(iso);
+  if (range === '1w' || range === '1m') {
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+};
+const fmtY = v => `$${v}`;
+const tooltipValue = v => [`$${Number(v).toFixed(2)}`, 'Close'];
+const tooltipLabel = label => new Date(label).toLocaleString(undefined, { dateStyle: 'medium' });
+
+// small styled button
+const RangeBtn = ({ value, children }) => (
+  <button
+    onClick={() => setRange(value)}
+    aria-pressed={range === value}
+    style={{
+      padding: '8px 12px',
+      borderRadius: 10,
+      border: '1px solid var(--border)',
+      background: range === value ? 'var(--accent)' : 'var(--card)',
+      color: range === value ? '#fff' : 'var(--text)',
+      cursor: 'pointer',
+      fontWeight: 600
+    }}
+  >
+    {children}
+  </button>
+);
+
 
   return (
     <div className="container">
@@ -90,22 +148,37 @@ export default function StockDetails() {
 
       {/* Main content: chart + news */}
       <div className="grid">
-        {/* Chart */}
-        <div className="card">
-          <div className="big" style={{ marginBottom: 8 }}>Price Trend</div>
-          <div style={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={last180}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis domain={['auto','auto']} />
-                <Tooltip />
-                <Line type="monotone" dataKey="close" dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="small muted">Daily close — last {last180.length} sessions.</div>
-        </div>
+        {/* Chart with duration controls */}
+<div className="card">
+  <div className="big" style={{ marginBottom: 8 }}>Price Trend</div>
+
+  {/* Duration buttons */}
+  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+    <span className="muted" style={{ alignSelf: 'center', marginRight: 6 }}>Duration:</span>
+    <RangeBtn value="1w">1W</RangeBtn>
+    <RangeBtn value="1m">1M</RangeBtn>
+    <RangeBtn value="6m">6M</RangeBtn>
+    <RangeBtn value="1y">1Y</RangeBtn>
+  </div>
+
+  <div style={{ height: 300 }}>
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={rangedRows}>
+        <CartesianGrid strokeDasharray="3 3" />
+        {/* we use 'iso' we computed in Block #1 so ticks are consistent */}
+        <XAxis dataKey="iso" tickFormatter={fmtX} minTickGap={24} />
+        <YAxis domain={['auto','auto']} tickFormatter={fmtY} width={60} />
+        <Tooltip labelFormatter={tooltipLabel} formatter={tooltipValue} />
+        <Line type="monotone" dataKey="close" dot={false} strokeWidth={2} />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+
+  <div className="small muted">
+    Showing {rangedRows.length} points — {range.toUpperCase()} view.
+  </div>
+</div>
+
 
         {/* News */}
         <div className="card">
