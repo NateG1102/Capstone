@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // use env when available; fallback to localhost:8081
-const API = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8081';
+// Prefer explicit env; otherwise use the current page's host so it works on LAN/other devices
+const API =
+  process.env.REACT_APP_API_BASE ||
+  `${window.location.protocol}//${window.location.hostname}:8081`;
 
 // canonical function names
 export const fetchPrice = (symbol) => axios.get(`${API}/api/stocks/price/${symbol}`);

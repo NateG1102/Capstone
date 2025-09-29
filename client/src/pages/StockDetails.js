@@ -17,6 +17,8 @@ export default function StockDetails() {
   const [ownership, setOwnership] = useState([]);
 
   useEffect(() => {
+    let isMounted = true; // ✅ ADDED: prevents setState after unmount
+
     (async () => {
       setLoading(true);
       try {
@@ -26,14 +28,25 @@ export default function StockDetails() {
           fetchNews(symbol),
           fetchOwnership(symbol),
         ]);
+        if (!isMounted) return; // ✅ ADDED
         setPrice(p?.data || null);
         setRows(h?.data?.rows || h?.data || []);
         setNews(n?.data?.articles || []);
         setOwnership(o?.data?.holders || []);
+      } catch (err) { // ✅ ADDED: catch Axios "Network Error" etc.
+        console.error('Failed to load data:', err?.message || err);
+        if (!isMounted) return; // ✅ ADDED
+        // Optional: clear to keep UI stable
+        setPrice(null);
+        setRows([]);
+        setNews([]);
+        setOwnership([]);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false); // ✅ ADDED guard
       }
     })();
+
+    return () => { isMounted = false; }; // ✅ ADDED cleanup
   }, [symbol]);
 
   const last180 = useMemo(() => rows.slice(-180), [rows]);

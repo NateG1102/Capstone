@@ -22,44 +22,79 @@ function MiniChartCard({ symbol, data, onClick }) {
   );
 }
 
-export default function RandomCharts({ count = 6 }) {
+export default function RandomCharts({ count = 6, enabled = false }) {
   const nav = useNavigate();
   const [symbols, setSymbols] = useState([]);
-  const [series, setSeries] = useState({});  // {SYM: rows[]}
-  const [loading, setLoading] = useState(true);
+  const [series, setSeries] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(null);
 
   useEffect(() => {
+    if (!enabled) return;               // <-- do nothing if backend not OK
+    let cancelled = false;
+
     (async () => {
+      setLoading(true);
+      setErr(null);
       try {
-        // get a pool of recent symbols from your DB
         const r = await listQuotes(200, 0);
         const items = r?.data?.items || [];
         const uniq = [...new Set(items.map(x => (x.symbol || '').toUpperCase()))].filter(Boolean);
 
-        // sample a few randomly
         const pick = [];
         const pool = [...uniq];
         while (pick.length < Math.min(count, pool.length)) {
-          const i = Math.floor(Math.random()*pool.length);
-          pick.push(pool.splice(i,1)[0]);
+          const i = Math.floor(Math.random() * pool.length);
+          pick.push(pool.splice(i, 1)[0]);
         }
+        if (cancelled) return;
         setSymbols(pick);
 
-        // fetch history for each
         const out = {};
         await Promise.all(pick.map(async sym => {
-          const h = await fetchHistory(sym);
-          out[sym] = h?.data?.rows || h?.data || [];
+          try {
+            const h = await fetchHistory(sym);
+            out[sym] = h?.data?.rows || h?.data || [];
+          } catch (e) {
+            // per-symbol failure shouldn't break the whole grid
+            out[sym] = [];
+          }
         }));
+        if (cancelled) return;
         setSeries(out);
+      } catch (e) {
+        if (!cancelled) setErr(e?.message || 'Network error');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [count]);
+
+    return () => { cancelled = true; };
+  }, [enabled, count]);
+
+  if (!enabled) {
+    return (
+      <div className="card">
+        <div className="muted">Charts hidden while the backend is offline.</div>
+      </div>
+    );
+  }
 
   if (loading) return <div className="muted">Loading charts…</div>;
-  if (!symbols.length) return <div className="muted">No symbols available yet.</div>;
+  if (err) {
+    return (
+      <div className="card">
+        <div className="muted">Couldn’t load charts: {err}</div>
+      </div>
+    );
+  }
+  if (!symbols.length) {
+    return (
+      <div className="card">
+        <div className="muted">No symbols available yet.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid">
