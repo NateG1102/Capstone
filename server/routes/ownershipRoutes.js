@@ -1,4 +1,7 @@
+// server/routes/ownershipRoutes.js
 const router = require('express').Router();
-const { getOwnership } = require('../controllers/ownershipController');
-router.get('/:symbol', getOwnership);
+const { getInstitutionalOwnership } = require('../controllers/ownershipController');
+
+router.get('/:symbol', getInstitutionalOwnership);
+
 module.exports = router;
