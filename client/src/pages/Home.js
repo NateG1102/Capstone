@@ -1,6 +1,7 @@
 import SearchBar from '../components/SearchBar';
 import RandomCharts from '../components/RandomCharts';
 import StockChatBox from '../components/StockChatBox';
+import Header from "../components/Header";
 
 import { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -29,28 +30,36 @@ export default function Home() {
 
   return (
     <div className="container">
+      {/* Site header with logo */}
+      <Header />
+
       {/* Hero */}
-      <div className="card" style={{
-        padding: 24,
-        display: 'grid',
-        gridTemplateColumns: '1fr 180px',
-        gap: 16,
-        alignItems: 'center'
-      }}>
+      <div
+        className="card"
+        style={{
+          padding: 24,
+          display: 'grid',
+          gridTemplateColumns: '1fr', // single column (removed placeholder logo box)
+          gap: 16,
+          alignItems: 'center'
+        }}
+      >
         <div>
           <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1.2 }}>
-            Welcome to <span style={{ background: 'var(--grad1)', WebkitBackgroundClip:'text', color:'transparent' }}>StockSyncer</span>
+            Welcome to{' '}
+            <span
+              style={{
+                background: 'var(--grad1)',
+                WebkitBackgroundClip: 'text',
+                color: 'transparent'
+              }}
+            >
+              StockSyncer
+            </span>
           </h1>
           <p className="muted" style={{ marginTop: 8 }}>
             Explore market trends, read the latest news, and chat about any ticker.
           </p>
-        </div>
-        <div style={{
-          width: 160, height: 160, border:'1px dashed var(--border)',
-          borderRadius: 16, display:'grid', placeItems:'center', justifySelf:'end',
-          background:'var(--card)'
-        }}>
-          <span className="muted small">Your Logo</span>
         </div>
       </div>
 
