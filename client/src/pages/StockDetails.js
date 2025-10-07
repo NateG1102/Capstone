@@ -1,4 +1,5 @@
 // src/pages/StockDetails.js
+// imported all files from section of code to allow the user to see the charts
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchPrice, fetchHistory } from '../services/stockAPI';
@@ -9,7 +10,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
 } from 'recharts';
 
-// --- Local fallback names (A–Z common listings). Extend anytime. ---
+// --- Local fallback names (A–Z common listings). Extend anytime. ---, built in array to dictionary in a sense, gets key val pairs in the user being able to map company name to ticker symbol 
 const LOCAL_NAMES = {
   // A
   A: 'Agilent Technologies', AA: 'Alcoa Corporation', AAC: 'Ares Acquisition', AAL: 'American Airlines Group',
@@ -103,10 +104,12 @@ const LOCAL_NAMES = {
   // Z
   ZM: 'Zoom Video Communications', ZS: 'Zscaler, Inc.'
 };
-
+{/* Reads the ticker symbol from routes and in a sense gets buckets of states and the api responds */}
 export default function StockDetails() {
   const { symbol: routeSymbol } = useParams();
   const symbol = (routeSymbol || 'AAPL').toUpperCase();
+{/* Loading, tracks whethere page is getting data
+   price, holds the latest quote object, rows holds the historical price rows, news holds the articles and ownership shows the institutions that partake in the ownership of stock, then u have ur settersn*/}
 
   const [loading, setLoading] = useState(false);
   const [price, setPrice] = useState(null);
@@ -135,7 +138,7 @@ export default function StockDetails() {
 
       if (!isMounted) return;
 
-      // price
+      // price, displays price towards user
       if (p.status === 'fulfilled') setPrice(p.value?.data || null);
       else setPrice(null);
 
@@ -147,7 +150,7 @@ export default function StockDetails() {
         setRows([]);
       }
 
-      // news (list only)
+      // news, pulls from the api, details news from places like Benzinga
       if (n.status === 'fulfilled') {
         const items = Array.isArray(n.value?.data?.items) ? n.value.data.items : [];
         setNews(items);
@@ -271,12 +274,12 @@ export default function StockDetails() {
               className="big"
               style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}
             >
-              {/* Company name */}
+              {/* Displays Company name */}
               <span className="muted" style={{ fontWeight: 600 }}>
                 {displayName}
               </span>
 
-              {/* Price + change */}
+              {/* Shows is price and the chance of price */}
               <span>${Number(price.price).toFixed(2)}</span>
               {price.change != null && (
                 <span style={{ color: (Number(price.change) >= 0 ? 'var(--success)' : 'var(--danger)') }}>
@@ -290,13 +293,13 @@ export default function StockDetails() {
         </div>
       </div>
 
-      {/* Main content: chart + news */}
+      {/* Shows the chart + news */}
       <div className="grid">
-        {/* Chart with duration controls */}
+        {/* Allows user to control the duration that is pressed and see price trend */}
         <div className="card">
           <div className="big" style={{ marginBottom: 8 }}>Price Trend</div>
 
-          {/* Duration buttons */}
+          {/* Duration */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
             <span className="muted" style={{ alignSelf: 'center', marginRight: 6 }}>Duration:</span>
             <RangeBtn value="1w">1W</RangeBtn>

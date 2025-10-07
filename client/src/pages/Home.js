@@ -6,6 +6,7 @@ import Header from "../components/Header";
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
+{/* API that we are using for the project */}
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8081';
 
 export default function Home() {
@@ -44,6 +45,7 @@ export default function Home() {
           alignItems: 'center'
         }}
       >
+        {/* HTML for the welcome to section for the user to see as they enter site */}
         <div>
           <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1.2 }}>
             Welcome to{' '}
@@ -57,13 +59,14 @@ export default function Home() {
               StockSyncer
             </span>
           </h1>
+          {/*Sub heading for the user to view */}
           <p className="muted" style={{ marginTop: 8 }}>
-            Explore market trends, read the latest news, and chat about any ticker.
+            Welcome to StockSyncer, Explore market trends, read the latest news, and chat about any ticker in our AI chatbox
           </p>
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search button*/}
       <div style={{ marginTop: 16 }}>
         <SearchBar />
       </div>

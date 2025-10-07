@@ -1,4 +1,8 @@
+// importing the logo from assest class
+
 import logo from "../assets/logo.png";
+
+// Logo we created, still in the prcoess
 
 export default function Header() {
   return (
