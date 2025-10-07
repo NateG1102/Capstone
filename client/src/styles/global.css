@@ -38,6 +38,8 @@ body::before{
   animation: shimmer 7s linear infinite;
   background-size: 200% 100%;
   z-index: 20;
+  /* NEW: let clicks pass through */
+  pointer-events: none;
 }
 @keyframes shimmer { to { background-position: 200% 0; } }
 
@@ -89,7 +91,7 @@ body::before{
   position:absolute; inset:-1px;
   background: radial-gradient(800px 300px at 30% -20%, hsla(200 100% 60% / .25), transparent 50%),
               radial-gradient(800px 300px at 80% -30%, hsla(300 100% 60% / .18), transparent 50%);
-  pointer-events:none;
+  pointer-events:none; /* already safe */
 }
 
 /* ===== grid & cards ===== */
@@ -121,6 +123,8 @@ body::before{
   transform: rotate(25deg);
   opacity: .18;
   animation: floaty 8s ease-in-out infinite;
+  /* NEW: let clicks pass through so links below are clickable */
+  pointer-events: none;
 }
 @keyframes floaty {
   0%,100% { transform: translateY(0) rotate(25deg); }
