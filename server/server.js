@@ -17,6 +17,7 @@ app.use('/api/stocks', require('./routes/stockRoutes'));
 app.use('/api/news', require('./routes/newsRoutes'));
 app.use('/api/ownership', require('./routes/ownershipRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/social', require('./routes/socialRoutes'));
 
 // Force localhost:8081 so Windows PID 4 on 5000 can't block you
 const HOST = process.env.HOST || '127.0.0.1';
