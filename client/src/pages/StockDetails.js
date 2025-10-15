@@ -9,6 +9,8 @@ import StockChatBox from '../components/StockChatBox';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
 } from 'recharts';
+import { fetchSocial } from '../services/socialAPI';
+
 
 // --- Local fallback names (A–Z common listings). Extend anytime. ---, built in array to dictionary in a sense, gets key val pairs in the user being able to map company name to ticker symbol 
 const LOCAL_NAMES = {
@@ -116,6 +118,7 @@ export default function StockDetails() {
   const [rows, setRows] = useState([]);
   const [news, setNews] = useState([]);
   const [ownership, setOwnership] = useState([]);
+  const [social, setSocial] = useState([]);
 
   // Company name (works even when APIs omit it)
   const [company, setCompany] = useState('');
@@ -129,11 +132,12 @@ export default function StockDetails() {
     setCompany('');
 
     (async () => {
-      const [p, h, n, o] = await Promise.allSettled([
+      const [p, h, n, o, s] = await Promise.allSettled([
         fetchPrice(symbol),
         fetchHistory(symbol),
         fetchNews(symbol, 8, 30),
         fetchOwnership(symbol),
+        fetchSocial(symbol, 10),
       ]);
 
       if (!isMounted) return;
@@ -164,6 +168,13 @@ export default function StockDetails() {
         setOwnership(holders);
       } else {
         setOwnership([]);
+      }
+      // social mentions (reddit/stocktwits)
+      if (s.status === 'fulfilled') {
+        const items = Array.isArray(s.value?.data?.items) ? s.value.data.items : [];
+        setSocial(items);
+      } else {
+        setSocial([]);
       }
 
       // ---------- Company name resolution ----------
@@ -348,6 +359,27 @@ export default function StockDetails() {
           )}
         </div>
       </div>
+      {/* Social Mentions */}
+      <div className="card">
+        <div className="big" style={{ marginBottom: 8 }}>Social Mentions</div>
+        {!social.length ? (
+          <div className="muted">No recent posts found.</div>
+        ) : (
+          <ul className="list">
+            {social.slice(0, 10).map((s, i) => (
+              <li key={i}>
+                <a href={s.url} target="_blank" rel="noreferrer">
+                  [{s.source}] {s.text.length > 120 ? s.text.slice(0, 120) + '…' : s.text}
+                </a>
+                <div className="small muted">
+                  {s.author}{s.subreddit ? ` • r/${s.subreddit}` : ''}{s.publishedAt ? ` • ${new Date(s.publishedAt).toLocaleString()}` : ''}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
 
       {/* Ownership + Chat */}
       <div className="grid">
