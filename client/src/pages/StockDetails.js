@@ -1,10 +1,12 @@
 // src/pages/StockDetails.js
 // imported all files from section of code to allow the user to see the charts
+import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchPrice, fetchHistory } from '../services/stockAPI';
 import { fetchNews } from '../services/newsAPI';
 import { fetchOwnership } from '../services/ownershipAPI';
+import { fetchPrediction } from '../services/stockAPI';
 import StockChatBox from '../components/StockChatBox';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
@@ -119,6 +121,10 @@ export default function StockDetails() {
   const [news, setNews] = useState([]);
   const [ownership, setOwnership] = useState([]);
   const [social, setSocial] = useState([]);
+  const [pred, setPred] = useState(null);
+  const [predLoading, setPredLoading] = useState(false);
+  const [predError, setPredError] = useState('');
+  const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8081';
 
   // Company name (works even when APIs omit it)
   const [company, setCompany] = useState('');
@@ -130,6 +136,9 @@ export default function StockDetails() {
 
     // Reset on symbol change (prevents stale/publisher names)
     setCompany('');
+    setPred(null);
+    setPredError('');
+    setPredLoading(false);
 
     (async () => {
       const [p, h, n, o, s] = await Promise.allSettled([
@@ -255,6 +264,22 @@ export default function StockDetails() {
   const tooltipValue = v => [`$${Number(v).toFixed(2)}`, 'Close'];
   const tooltipLabel = label => new Date(label).toLocaleString(undefined, { dateStyle: 'medium' });
 
+  async function runPrediction() {
+    setPredLoading(true);
+    setPredError('');
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/stocks/predict/${symbol}`, { timeout: 10000 });
+      setPred(data);
+    } catch (e) {
+      const msg = e?.response?.data?.error || e?.message || 'Unknown error';
+      setPred(null);
+      setPredError(`Could not run quick trend check: ${msg}`);
+    } finally {
+      setPredLoading(false);
+    }
+  }
+
+
   const RangeBtn = ({ value, children }) => (
     <button
       onClick={() => setRange(value)}
@@ -335,6 +360,33 @@ export default function StockDetails() {
             Showing {rangedRows.length} points — {range.toUpperCase()} view.
           </div>
         </div>
+
+        {/* Prediction */}
+        <div className="card">
+          <div className="big" style={{ marginBottom: 8 }}>Prediction</div>
+
+          <button
+            onClick={runPrediction}
+            disabled={predLoading}
+            className="segbtn"
+            style={{ marginBottom: 10 }}
+          >
+            {predLoading ? 'Checking…' : 'Run quick trend check'}
+          </button>
+
+          {predError && <div className="small muted">{predError}</div>}
+
+          {pred && (
+            <ul className="list" style={{ marginTop: 8 }}>
+              <li><strong>Trend:</strong> {pred.trend} <span className="small muted">(R² {pred.r2})</span></li>
+              <li><strong>Days used:</strong> {pred.daysUsed}</li>
+              <li><strong>Last close:</strong> ${pred.lastClose}</li>
+              <li><strong>Projected (≈5 days):</strong> ${pred.projectedPrice}</li>
+            </ul>
+          )}
+        </div>
+
+
 
         {/* News */}
         <div className="card">

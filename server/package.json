@@ -19,8 +19,10 @@
     "csv-parse": "^5.6.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "fast-xml-parser": "^5.3.0",
     "openai": "^5.23.1",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

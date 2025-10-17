@@ -1,9 +1,14 @@
-
 const router = require('express').Router();
-const stock = require('../controllers/stockController');
+const {
+  getStockPrice,
+  getHistoricalDaily,
+  listQuotes,
+  getTrendPrediction,
+} = require('../controllers/stockController');
 
-router.get('/price/:symbol', stock.getStockPrice);
-router.get('/history/:symbol', stock.getHistoricalDaily);
-router.get('/quotes', stock.listQuotes);
+router.get('/price/:symbol', getStockPrice);
+router.get('/history/:symbol', getHistoricalDaily);
+router.get('/quotes', listQuotes);
+router.get('/predict/:symbol', getTrendPrediction);
 
 module.exports = router;

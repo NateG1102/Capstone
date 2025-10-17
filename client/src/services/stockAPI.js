@@ -26,3 +26,7 @@ export async function fetchProfile(symbol) {
   const data = await res.json();
   return { data }; // expected { data: { companyName / longName / shortName / name / company } }
 }
+
+export function fetchPrediction(symbol) {
+  return axios.get(`${API_BASE}/api/stocks/predict/${symbol}`);
+}

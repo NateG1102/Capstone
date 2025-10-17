@@ -22,6 +22,7 @@ async function getStockPrice(req, res) {
   try {
     const symbol = (req.params.symbol || 'AAPL').toUpperCase();
 
+    
     // step 1: DB cache (recent quote)
     const { rows: cached } = await pool.query(
       `select price, change, change_percent, fetched_at
@@ -168,9 +169,79 @@ async function listQuotes(req, res) {
   }
 }
 
+// --- quick linear regression helpers ---
+function linreg(y) {
+  const n = y.length; if (n < 5) return { slope: 0, r2: 0 };
+  const xs = Array.from({ length: n }, (_, i) => i);
+  const sx = xs.reduce((a, b) => a + b, 0);
+  const sy = y.reduce((a, b) => a + b, 0);
+  const sxx = xs.reduce((a, b) => a + b * b, 0);
+  const sxy = xs.reduce((a, _, i) => a + xs[i] * y[i], 0);
+  const syy = y.reduce((a, b) => a + b * b, 0);
+  const denom = n * sxx - sx * sx; if (!denom) return { slope: 0, r2: 0 };
+  const slope = (n * sxy - sx * sy) / denom;
+  const intercept = (sy - slope * sx) / n;
+  const yMean = sy / n;
+  const ssTot = y.reduce((a, yi) => a + (yi - yMean) ** 2, 0);
+  const ssRes = y.reduce((a, yi, i) => a + (yi - (slope * xs[i] + intercept)) ** 2, 0);
+  const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+  return { slope, r2 };
+}
+function labelTrend(slope, r2) {
+  if (r2 < 0.05) return 'flat';
+  if (slope > 0) return 'up';
+  if (slope < 0) return 'down';
+  return 'flat';
+}
+
+// GET /api/stocks/predict/:symbol
+// uses AV daily data to fit a simple line and label the trend
+async function getTrendPrediction(req, res) {
+  try {
+    const symbol = (req.params.symbol || 'AAPL').toUpperCase();
+    const r = await axios.get(AV_BASE, {
+      params: { function:'TIME_SERIES_DAILY_ADJUSTED', symbol, outputsize:'compact', apikey: KEY }
+    });
+    if (limitHit(r.data)) {
+      return res.status(429).json({ error: 'Alpha Vantage limit or error', detail: r.data });
+    }
+    const ts = r.data?.['Time Series (Daily)'];
+    if (!ts) return res.status(404).json({ error: 'No historical data' });
+
+    const rows = Object.entries(ts)
+      .map(([date, v]) => ({ date, close: Number(v['4. close']) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const closes = rows.map(x => x.close).filter(Number.isFinite);
+    const series = closes.slice(-90);
+    if (series.length < 10) return res.status(400).json({ error: 'Not enough data to fit' });
+
+    // simple linear regression utilities you already added above:
+    const { slope, r2 } = linreg(series);
+    const trend = labelTrend(slope, r2);
+    const lastClose = series[series.length - 1];
+    const projectedPrice = Number((lastClose + slope * 5).toFixed(2));
+
+    res.json({
+      symbol,
+      daysUsed: series.length,
+      trend,
+      r2: Number(r2.toFixed(3)),
+      lastClose,
+      projectedPrice
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Prediction failed', detail: e?.message });
+  }
+}
+
+
 // export handlers
 module.exports = {
   getStockPrice,
   getHistoricalDaily,
   listQuotes,
+ getTrendPrediction,
 };
+
+
