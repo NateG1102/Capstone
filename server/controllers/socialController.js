@@ -1,28 +1,12 @@
 // server/controllers/socialController.js
-// Pulls recent symbol chatter from StockTwits and Reddit (no keys required)
+// Keep Reddit links; replace Stocktwits with Twitter (X) cashtag search embed
 
 const axios = require('axios');
 
 // helper to keep it safe
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
-// normalize a StockTwits post to a common shape
-function normalizeTwit(m) {
-  const user = m?.user?.username || m?.user?.name || 'unknown';
-  const txt  = (m?.body || '').trim();
-  const url  = m?.links?.length ? (m.links[0]?.url || '') : '';
-  const ts   = m?.created_at ? new Date(m.created_at).toISOString() : null;
-  const id   = m?.id ? String(m.id) : null;
-  return {
-    source: 'stocktwits',
-    author: user,
-    text: txt,
-    url: url || (id ? `https://stocktwits.com/messages/${id}` : ''),
-    publishedAt: ts
-  };
-}
-
-// normalize a Reddit post to a common shape
+// normalize a Reddit post to a common shape (kept)
 function normalizeReddit(p) {
   const d = p?.data || {};
   const user = d?.author || 'u/unknown';
@@ -40,27 +24,16 @@ function normalizeReddit(p) {
 }
 
 // GET /api/social/:symbol?limit=20
+// now returns Reddit-only links (Stocktwits removed)
 exports.getSocialBySymbol = async (req, res) => {
   const symbol = (req.params.symbol || 'AAPL').toUpperCase();
   const limit = clamp(Number(req.query.limit || 20), 1, 50);
 
   try {
-    // 1) StockTwits (public)
-    const stUrl = `https://api.stocktwits.com/api/2/streams/symbol/${encodeURIComponent(symbol)}.json`;
-    let twits = [];
-    try {
-      const { data } = await axios.get(stUrl, { timeout: 7000 });
-      const msgs = Array.isArray(data?.messages) ? data.messages : [];
-      twits = msgs.map(normalizeTwit);
-    } catch (e) {
-      // keep going even if ST fails
-      console.warn('[social] stocktwits failed:', e.message);
-    }
-
-    // 2) Reddit public search JSON
-    // simple query: the ticker as plain text and with $ prefixed
+    // Reddit public search JSON (kept behavior)
     const q = `${symbol} OR $${symbol}`;
     const rdUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(q)}&sort=new&limit=${limit}`;
+
     let reddits = [];
     try {
       const { data } = await axios.get(rdUrl, {
@@ -73,15 +46,44 @@ exports.getSocialBySymbol = async (req, res) => {
       console.warn('[social] reddit failed:', e.message);
     }
 
-    // merge + sort newest first + cap to limit
-    const merged = [...twits, ...reddits]
+    // newest first + cap to limit (already limited upstream)
+    const items = (reddits || [])
       .filter(x => x && x.text && x.url)
-      .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))
-      .slice(0, limit);
+      .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
 
-    return res.json({ symbol, count: merged.length, items: merged });
+    return res.json({ symbol, count: items.length, items });
   } catch (err) {
     console.error('[social]', err.message);
     return res.status(500).json({ error: 'Social fetch failed', detail: err.message });
+  }
+};
+
+// GET /api/social/twitter/:symbol
+// Twitter (X) cashtag timeline: open link in new tab + use only $SYMBOL
+exports.getTwitterEmbedBySymbol = async (req, res) => {
+  try {
+    const raw = (req.params.symbol || req.query.symbol || 'AAPL').toUpperCase().trim();
+
+    // Use ONLY the cashtag for a clean, focused timeline
+    const cashtag = `$${raw}`;
+    const q = encodeURIComponent(cashtag); // encodes the $ properly
+    const href = `https://twitter.com/search?q=${q}&src=typed_query&f=live`;
+
+    // Add target="_blank" to open the timeline link in a new tab
+    const html = `
+<div style="width:100%;">
+  <a class="twitter-timeline"
+     href="${href}"
+     target="_blank"
+     rel="noopener noreferrer">
+     Tweets about ${cashtag}
+  </a>
+  <script async src="https://platform.twitter.com/widgets.js"></script>
+</div>`.trim();
+
+    return res.json({ symbol: raw, query: cashtag, html });
+  } catch (err) {
+    console.warn('[twitter-embed] error:', err?.message || err);
+    return res.status(500).json({ error: 'failed to build twitter embed' });
   }
 };

@@ -207,7 +207,8 @@ export default function StockDetails() {
   const fmtY = v => `$${v}`;
   const tooltipValue = v => [`$${Number(v).toFixed(2)}`, 'Close'];
   const tooltipLabel = label => new Date(label).toLocaleString(undefined, { dateStyle: 'medium' });
-
+  
+  //prediction helper func
   async function runPrediction() {
     setPredLoading(true);
     setPredError('');
@@ -222,6 +223,36 @@ export default function StockDetails() {
       setPredLoading(false);
     }
   }
+
+  // Twitter cashtag embed panel
+function TwitterPanel({ symbol, apiBase }) {
+  const [html, setHtml] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${apiBase}/api/social/twitter/${symbol}`);
+        const j = await r.json();
+        if (!cancelled) setHtml(j.html || "");
+      } catch (e) {
+        console.warn("[twitter] embed load failed:", e?.message || e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [symbol, apiBase]);
+
+  // The server returns a self-contained embed block with the widgets.js loader
+  return (
+    <div
+      className="twitter-embed"
+      style={{ width: "100%", minHeight: 300 }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+
 
   const RangeBtn = ({ value, children }) => (
     <button
@@ -337,6 +368,8 @@ export default function StockDetails() {
       {/* Social Mentions */}
       <div className="card">
         <div className="big" style={{ marginBottom: 8 }}>Social Mentions</div>
+
+        {/* Reddit links (kept exactly as-is) */}
         {!social.length ? (
           <div className="muted">No recent posts found.</div>
         ) : (
@@ -344,16 +377,22 @@ export default function StockDetails() {
             {social.slice(0, 10).map((s, i) => (
               <li key={i}>
                 <a href={s.url} target="_blank" rel="noreferrer">
-                  [{s.source}] {s.text.length > 120 ? s.text.slice(0, 120) + '…' : s.text}
+                  [{s.source}] {s.text.length > 120 ? s.text.slice(0, 120) + "…" : s.text}
                 </a>
                 <div className="small muted">
-                  {s.author}{s.subreddit ? ` • r/${s.subreddit}` : ''}{s.publishedAt ? ` • ${new Date(s.publishedAt).toLocaleString()}` : ''}
+                  {s.author}{s.subreddit ? ` • r/${s.subreddit}` : ""}{s.publishedAt ? ` • ${new Date(s.publishedAt).toLocaleString()}` : ""}
                 </div>
               </li>
             ))}
           </ul>
         )}
+
+        {/* Twitter cashtag timeline (replaces Stocktwits) */}
+        <div className="divider" style={{ margin: "12px 0" }} />
+        <div className="big" style={{ marginBottom: 6 }}>Twitter Cashtag Feed</div>
+        <TwitterPanel symbol={symbol} apiBase={API_BASE} />
       </div>
+
 
       {/* Ownership + Chat */}
       <div className="grid">
