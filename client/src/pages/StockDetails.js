@@ -208,6 +208,8 @@ export default function StockDetails() {
   const tooltipValue = v => [`$${Number(v).toFixed(2)}`, 'Close'];
   const tooltipLabel = label => new Date(label).toLocaleString(undefined, { dateStyle: 'medium' });
   
+
+  
   //prediction helper func
   async function runPrediction() {
     setPredLoading(true);
