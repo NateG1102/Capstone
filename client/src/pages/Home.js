@@ -1,3 +1,4 @@
+// src/pages/Home.js
 import SearchBar from '../components/SearchBar';
 import RandomCharts from '../components/RandomCharts';
 import StockChatBox from '../components/StockChatBox';
@@ -5,6 +6,8 @@ import Header from "../components/Header";
 
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
+import { readWishlist, removeFromWishlist } from '../utils/cookies';
 
 {/* API that we are using for the project */}
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8081';
@@ -12,6 +15,9 @@ const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8081';
 export default function Home() {
   const [backendOk, setBackendOk] = useState(true);
   const [checking, setChecking] = useState(true);
+
+  // wishlist state (cookie-backed)
+  const [wishlist, setWishlist] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +35,11 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
+  // load wishlist from cookie on mount
+  useEffect(() => {
+    setWishlist(readWishlist());
+  }, []);
+
   return (
     <div className="container">
       {/* Site header with logo */}
@@ -40,7 +51,7 @@ export default function Home() {
         style={{
           padding: 24,
           display: 'grid',
-          gridTemplateColumns: '1fr', // single column (removed placeholder logo box)
+          gridTemplateColumns: '1fr',
           gap: 16,
           alignItems: 'center'
         }}
@@ -69,6 +80,44 @@ export default function Home() {
       {/* Search button*/}
       <div style={{ marginTop: 16 }}>
         <SearchBar />
+      </div>
+
+      {/* Wishlist (cookie-backed) */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="big" style={{ marginBottom: 8 }}>Wishlist</div>
+        {!wishlist.length ? (
+          <div className="muted">Your wishlist is empty. Add tickers from the Stock page.</div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {wishlist.map(sym => (
+              <div
+                key={sym}
+                className="segbtn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                title={`Go to ${sym}`}
+              >
+                <Link
+                  to={`/stock/${sym}`}
+                  style={{ textDecoration: 'none', color: 'inherit', fontWeight: 700 }}
+                >
+                  {sym}
+                </Link>
+                <button
+                  onClick={() => setWishlist(removeFromWishlist(sym))}
+                  aria-label={`Remove ${sym}`}
+                  title="Remove"
+                  className="segbtn"
+                  style={{ padding: '2px 8px' }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="small muted" style={{ marginTop: 8 }}>
+          Saved in a cookie (1 year).
+        </div>
       </div>
 
       {/* Optional: status banner */}
