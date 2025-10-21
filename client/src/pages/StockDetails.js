@@ -11,6 +11,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
 } from 'recharts';
 import { fetchSocial } from '../services/socialAPI';
+import { addToWishlist } from '../utils/cookies'; // <-- wishlist cookie helper
 
 // Local fallback names (A–Z common listings)
 const LOCAL_NAMES = {
@@ -99,6 +100,9 @@ export default function StockDetails() {
 
   const [company, setCompany] = useState('');
   const displayName = company || symbol;
+
+  // tiny note to confirm wishlist saves
+  const [savedNote, setSavedNote] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -225,6 +229,13 @@ export default function StockDetails() {
     }
   }
 
+  // save to wishlist cookie
+  function handleAddWishlist() {
+    addToWishlist(symbol);
+    setSavedNote('Added!');
+    setTimeout(() => setSavedNote(''), 1200);
+  }
+
   // Twitter cashtag embed panel (kept functionality; UI-contained)
   function TwitterPanel({ symbol, apiBase }) {
     const [html, setHtml] = useState("");
@@ -276,6 +287,16 @@ export default function StockDetails() {
           >
             Home
           </button>
+
+          <button
+            onClick={handleAddWishlist}
+            className="segbtn"
+            aria-label="Add to Wishlist"
+            title="Add to Wishlist"
+          >
+            + Wishlist
+          </button>
+          {savedNote && <span className="small muted">{savedNote}</span>}
 
           <h2 style={{ margin: 0 }}>{symbol}</h2>
 
