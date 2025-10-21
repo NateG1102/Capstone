@@ -1,7 +1,7 @@
 // src/pages/StockDetails.js
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { fetchPrice, fetchHistory } from '../services/stockAPI';
 import { fetchNews } from '../services/newsAPI';
 import { fetchOwnership } from '../services/ownershipAPI';
@@ -83,6 +83,7 @@ const LOCAL_NAMES = {
 
 export default function StockDetails() {
   const { symbol: routeSymbol } = useParams();
+  const navigate = useNavigate();
   const symbol = (routeSymbol || 'AAPL').toUpperCase();
 
   const [loading, setLoading] = useState(false);
@@ -207,10 +208,8 @@ export default function StockDetails() {
   const fmtY = v => `$${v}`;
   const tooltipValue = v => [`$${Number(v).toFixed(2)}`, 'Close'];
   const tooltipLabel = label => new Date(label).toLocaleString(undefined, { dateStyle: 'medium' });
-  
 
-  
-  //prediction helper func
+  // prediction helper func
   async function runPrediction() {
     setPredLoading(true);
     setPredError('');
@@ -226,49 +225,39 @@ export default function StockDetails() {
     }
   }
 
-  // Twitter cashtag embed panel
-function TwitterPanel({ symbol, apiBase }) {
-  const [html, setHtml] = useState("");
+  // Twitter cashtag embed panel (kept functionality; UI-contained)
+  function TwitterPanel({ symbol, apiBase }) {
+    const [html, setHtml] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await fetch(`${apiBase}/api/social/twitter/${symbol}`);
-        const j = await r.json();
-        if (!cancelled) setHtml(j.html || "");
-      } catch (e) {
-        console.warn("[twitter] embed load failed:", e?.message || e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [symbol, apiBase]);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const r = await fetch(`${apiBase}/api/social/twitter/${symbol}`);
+          const j = await r.json();
+          if (!cancelled) setHtml(j.html || "");
+        } catch (e) {
+          console.warn("[twitter] embed load failed:", e?.message || e);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [symbol, apiBase]);
 
-  // The server returns a self-contained embed block with the widgets.js loader
-  return (
-    <div
-      className="twitter-embed"
-      style={{ width: "100%", minHeight: 300 }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
-
-
+    return (
+      <div
+        className="twitter-embed"
+        style={{ width: "100%", minHeight: 320 }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
 
   const RangeBtn = ({ value, children }) => (
     <button
       onClick={() => setRange(value)}
       aria-pressed={range === value}
-      style={{
-        padding: '8px 12px',
-        borderRadius: 10,
-        border: '1px solid var(--border)',
-        background: range === value ? 'var(--accent)' : 'var(--card)',
-        color: range === value ? '#fff' : 'var(--text)',
-        cursor: 'pointer',
-        fontWeight: 600
-      }}
+      className={`segbtn ${range === value ? 'active' : ''}`}
+      style={{ padding: '8px 12px' }}
     >
       {children}
     </button>
@@ -278,7 +267,16 @@ function TwitterPanel({ symbol, apiBase }) {
     <div className="container">
       {/* Header */}
       <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display:'flex', alignItems:'baseline', gap:12 }}>
+        <div style={{ display:'flex', alignItems:'baseline', gap:12, flexWrap:'wrap' }}>
+          <button
+            onClick={() => navigate('/')}
+            className="segbtn"
+            aria-label="Go to Home"
+            title="Home"
+          >
+            Home
+          </button>
+
           <h2 style={{ margin: 0 }}>{symbol}</h2>
 
           {price?.price != null && (
@@ -306,14 +304,14 @@ function TwitterPanel({ symbol, apiBase }) {
       <div className="grid">
         <div className="card">
           <div className="big" style={{ marginBottom: 8 }}>Price Trend</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-            <span className="muted" style={{ alignSelf: 'center', marginRight: 6 }}>Duration:</span>
+          <div className="seg" style={{ marginBottom: 10 }}>
+            <span className="muted" style={{ alignSelf: 'center' }}>Duration:</span>
             <RangeBtn value="1w">1W</RangeBtn>
             <RangeBtn value="1m">1M</RangeBtn>
             <RangeBtn value="6m">6M</RangeBtn>
             <RangeBtn value="1y">1Y</RangeBtn>
           </div>
-          <div style={{ height: 300 }}>
+          <div style={{ height: 320 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rangedRows}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -334,7 +332,7 @@ function TwitterPanel({ symbol, apiBase }) {
           </button>
           {predError && <div className="small muted">{predError}</div>}
           {pred && (
-            <ul className="list" style={{ marginTop: 8 }}>
+            <ul className="list scroll" style={{ marginTop: 8 }}>
               <li><strong>Trend:</strong> {pred.trend} <span className="small muted">(R² {pred.r2})</span></li>
               <li><strong>Days used:</strong> {pred.daysUsed}</li>
               <li><strong>Last close:</strong> ${pred.lastClose}</li>
@@ -343,25 +341,28 @@ function TwitterPanel({ symbol, apiBase }) {
           )}
         </div>
 
-        {/* News */}
+        {/* News (clickable even when coming from DB) */}
         <div className="card">
           <div className="big" style={{ marginBottom: 8 }}>News</div>
           {!news.length ? (
             <div className="muted">No news yet.</div>
           ) : (
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {news.slice(0,10).map((a, i) => (
-                <li key={i} style={{ marginBottom: 8 }}>
-                  <a href={a.link} target="_blank" rel="noreferrer">{a.title}</a>
-                  {a.source && <span className="small muted"> — {a.source}</span>}
-                  {a.publishedAt && <div className="small muted">{new Date(a.publishedAt).toLocaleString()}</div>}
-                  {typeof a.sentimentScore === 'number' && a.sentimentLabel ? (
-                    <div className="small muted">
-                      {a.sentimentLabel} ({a.sentimentScore.toFixed(2)})
-                    </div>
-                  ) : null}
-                </li>
-              ))}
+            <ul className="list scroll">
+              {news.slice(0,10).map((a, i) => {
+                const href = a.link || a.url || '#'; // <-- fix for DB records
+                return (
+                  <li key={i}>
+                    <a href={href} target="_blank" rel="noreferrer">{a.title || href}</a>
+                    {a.source && <span className="small muted"> — {a.source}</span>}
+                    {a.publishedAt && <div className="small muted">{new Date(a.publishedAt).toLocaleString()}</div>}
+                    {typeof a.sentimentScore === 'number' && a.sentimentLabel ? (
+                      <div className="small muted">
+                        {a.sentimentLabel} ({a.sentimentScore.toFixed(2)})
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -375,7 +376,7 @@ function TwitterPanel({ symbol, apiBase }) {
         {!social.length ? (
           <div className="muted">No recent posts found.</div>
         ) : (
-          <ul className="list">
+          <ul className="list scroll">
             {social.slice(0, 10).map((s, i) => (
               <li key={i}>
                 <a href={s.url} target="_blank" rel="noreferrer">
@@ -395,7 +396,6 @@ function TwitterPanel({ symbol, apiBase }) {
         <TwitterPanel symbol={symbol} apiBase={API_BASE} />
       </div>
 
-
       {/* Ownership + Chat */}
       <div className="grid">
         <div className="card">
@@ -403,24 +403,26 @@ function TwitterPanel({ symbol, apiBase }) {
           {!ownership.length ? (
             <div className="muted">No ownership data.</div>
           ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Institution</th>
-                  <th>Shares</th>
-                  <th>%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ownership.map((h, i) => (
-                  <tr key={i}>
-                    <td><a href={h.filing || '#'} target="_blank" rel="noreferrer">{h.institution}</a></td>
-                    <td>{Number(h.shares || 0).toLocaleString()}</td>
-                    <td>{h.percent != null ? `${Number(h.percent).toFixed(2)}%` : '-'}</td>
+            <div className="scroll">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Institution</th>
+                    <th>Shares</th>
+                    <th>%</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {ownership.map((h, i) => (
+                    <tr key={i}>
+                      <td><a href={h.filing || '#'} target="_blank" rel="noreferrer">{h.institution}</a></td>
+                      <td>{Number(h.shares || 0).toLocaleString()}</td>
+                      <td>{h.percent != null ? `${Number(h.percent).toFixed(2)}%` : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <div className="small muted" style={{ marginTop: 6 }}>
             Based on recent 13F filings (aggregated from local DB).

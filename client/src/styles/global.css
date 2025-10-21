@@ -95,24 +95,51 @@ body::before{
 }
 
 /* ===== grid & cards ===== */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 18px 0; }
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(12px) saturate(120%);
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  position: relative;
-  overflow: hidden;
+/* === GRID FLOW IMPROVEMENTS (equal-height cards, no awkward gaps) === */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* a touch wider for smoother wraps */
+  gap: 18px;             /* slightly larger for breathing room */
+  align-items: stretch;  /* make columns stretch */
 }
-.card:hover{
-  transform: translateY(-3px);
-  box-shadow: 0 14px 44px hsla(210 80% 10% / .6);
-  border-color: hsla(200 100% 60% / .45);
+
+/* ensure cards fill grid rows evenly and stack content nicely */
+.grid > .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
-.card .big { font-size: 22px; }
+
+/* allow long lists/tables to scroll inside a card without breaking the row height */
+.card .scroll {
+  overflow: auto;
+  max-height: 420px; /* tweak if you want */
+  padding-right: 4px;
+}
+
+/* keep existing .card look; just make sure overlays never block clicks */
+.card::before { pointer-events: none; }            /* already present above, reiterating safety */
+body::before { pointer-events: none; }             /* already present above, reiterating safety */
+
+/* === FOOTER === */
+.site-footer {
+  margin: 36px auto 24px;
+  max-width: 1200px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  opacity: .95;
+}
+.site-footer strong {
+  background: var(--grad1);
+  -webkit-background-clip: text;
+  color: transparent;
+  letter-spacing: .2px;
+}
 
 /* subtle animated accent stripe on cards */
 .card::before{
@@ -243,3 +270,4 @@ body.light .row button { color:#fff; }
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
 }
+
