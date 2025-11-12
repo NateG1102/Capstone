@@ -148,25 +148,33 @@ exports.getInstitutionalOwnership = async (req, res) => {
 
       const { rows } = await client.query(sql, [symbol]);
 
-      // Optional % computation
-      const so = await getSharesOutstanding(client, symbol);
+     
+      // Optional % computation (company float)
+const so = await getSharesOutstanding(client, symbol);
 
-      const holders = rows.map(r => {
-        const shares = Number(r.shares || 0);
-        // normalize as_of → YYYY-MM-DD if possible
-        let asOf = r.as_of ? String(r.as_of) : null;
-        if (asOf && asOf.length >= 10) asOf = asOf.slice(0, 10);
+// Fallback: percent of the displayed total if company float unknown
+const totalShares = rows.reduce((acc, r) => acc + Number(r.shares || 0), 0) || 0;
 
-        return {
-          institution: r.institution || 'Unknown',
-          shares,
-          percent: so ? (shares / so) * 100 : null,
-          as_of: asOf,
-          filing: r.filing || null
-        };
-      });
+const holders = rows.map(r => {
+  const shares = Number(r.shares || 0);
+  // normalize as_of → YYYY-MM-DD if possible
+  let asOf = r.as_of ? String(r.as_of) : null;
+  if (asOf && asOf.length >= 10) asOf = asOf.slice(0, 10);
 
-      return res.json({ symbol, holders, source: '13F(db)' });
+  return {
+    institution: r.institution || 'Unknown',
+    shares,
+    // true company % if shares_outstanding is known
+    percent: so ? (shares / so) * 100 : null,
+    // fallback: % of the displayed total (always defined if totalShares > 0)
+    panelPercent: !so && totalShares ? (shares / totalShares) * 100 : null,
+    as_of: asOf,
+    filing: r.filing || null
+  };
+});
+
+return res.json({ symbol, holders, source: '13F(db)' });
+
     } finally {
       client.release();
     }

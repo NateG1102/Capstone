@@ -529,9 +529,13 @@ export default function StockDetails() {
                 <tbody>
                   {ownership.map((h, i) => (
                     <tr key={i}>
-                      <td><a href={h.filing || '#'} target="_blank" rel="noreferrer">{h.institution}</a></td>
+                      <td><span style={{ fontWeight: 500 }}>{h.institution}</span></td>
                       <td>{Number(h.shares || 0).toLocaleString()}</td>
-                      <td>{h.percent != null ? `${Number(h.percent).toFixed(2)}%` : '-'}</td>
+                      <td>{
+                        (h.percent ?? h.panelPercent) != null
+                          ? `${Number(h.percent ?? h.panelPercent).toFixed(2)}%`
+                          : '—'
+                      }</td>
                     </tr>
                   ))}
                 </tbody>
