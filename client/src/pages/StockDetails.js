@@ -192,26 +192,93 @@ export default function StockDetails() {
 
   // === Chart range ===
   const [range, setRange] = useState('1m');
+
+  // FIXED range logic: use latest date in data, not "today",
+  // and actually limit to 1w/1m/6m/1y based on that.
   const rangedRows = useMemo(() => {
     if (!rows?.length) return [];
-    const days = range === '1w' ? 7 : range === '1m' ? 30 : range === '6m' ? 182 : 365;
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
-    const within = rows.filter(r => (r.date instanceof Date ? r.date : new Date(r.date)) >= cutoff);
-    const data = (within.length ? within : rows).map(r => {
-      const d = r.date instanceof Date ? r.date : new Date(r.date);
-      return { ...r, iso: d.toISOString() };
-    });
-    return data;
+
+    // Normalize and ignore invalid dates
+    const normalized = rows
+      .map(r => {
+        const d = r.date instanceof Date ? r.date : new Date(r.date);
+        return { ...r, _date: d };
+      })
+      .filter(r => !Number.isNaN(r._date));
+
+    if (!normalized.length) return [];
+
+    // Sort ascending by date
+    normalized.sort((a, b) => a._date - b._date);
+
+    // Use the latest point in the history, not today's date
+    const latest = normalized[normalized.length - 1]._date;
+
+    const days =
+      range === '1w' ? 7 :
+      range === '1m' ? 30 :
+      range === '6m' ? 182 :
+      365;
+
+    const cutoff = new Date(latest);
+    cutoff.setDate(cutoff.getDate() - days);
+
+    const filtered = normalized.filter(r => r._date >= cutoff);
+
+    const base = filtered.length ? filtered : normalized;
+
+    return base.map(r => ({
+      ...r,
+      iso: r._date.toISOString(),
+    }));
   }, [rows, range]);
 
   const fmtX = (iso) => {
     const d = new Date(iso);
-    if (range === '1w' || range === '1m') return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (range === '1w' || range === '1m') {
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
     return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
   };
   const fmtY = v => `$${v}`;
-  const tooltipValue = v => [`$${Number(v).toFixed(2)}`, 'Close'];
-  const tooltipLabel = label => new Date(label).toLocaleString(undefined, { dateStyle: 'medium' });
+
+  // === Tooltip helpers ===
+  const fmtTooltipValue = (v) => `$${Number(v).toFixed(2)}`;
+  const fmtTooltipDate = (label) => {
+    if (!label) return '';
+    const d = new Date(label);
+    if (Number.isNaN(d.getTime())) return String(label);
+    return d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+  };
+
+  // ⭐ Custom tooltip so date always shows above Close
+  const CustomTooltip = ({ active, label, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const value = payload[0]?.value;
+    const dateStr = fmtTooltipDate(label);
+    const priceStr = fmtTooltipValue(value);
+
+    return (
+      <div
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          padding: '6px 10px',
+          borderRadius: 6,
+          fontSize: 12,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.25)'
+        }}
+      >
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>{dateStr}</div>
+        <div>
+          Close:{' '}
+          <span style={{ fontWeight: 600 }}>
+            {priceStr}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   // prediction helper func
   async function runPrediction() {
@@ -298,6 +365,16 @@ export default function StockDetails() {
           </button>
           {savedNote && <span className="small muted">{savedNote}</span>}
 
+          {/* Trendline Tool button for this symbol */}
+          <button
+            onClick={() => navigate(`/trendline/${symbol}`)}
+            className="segbtn"
+            aria-label="Open Trendline Tool"
+            title="Open Trendline Tool"
+          >
+            Trendline Tool
+          </button>
+
           <h2 style={{ margin: 0 }}>{symbol}</h2>
 
           {price?.price != null && (
@@ -332,18 +409,36 @@ export default function StockDetails() {
             <RangeBtn value="6m">6M</RangeBtn>
             <RangeBtn value="1y">1Y</RangeBtn>
           </div>
-          <div style={{ height: 320 }}>
+
+          {/* Slightly larger chart + padded Y-axis */}
+          <div style={{ height: 380 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rangedRows}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="iso" tickFormatter={fmtX} minTickGap={24} />
-                <YAxis domain={['auto','auto']} tickFormatter={fmtY} width={60} />
-                <Tooltip labelFormatter={tooltipLabel} formatter={tooltipValue} />
-                <Line type="monotone" dataKey="close" dot={false} strokeWidth={2} />
+                <XAxis
+                  dataKey="iso"
+                  tickFormatter={fmtX}
+                  minTickGap={24}
+                />
+                <YAxis
+                  domain={['dataMin - 2', 'dataMax + 2']}
+                  tickFormatter={fmtY}
+                  width={70}
+                />
+                {/* ⭐ Custom tooltip with date + close */}
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="close"
+                  dot={false}
+                  strokeWidth={2}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="small muted">Showing {rangedRows.length} points — {range.toUpperCase()} view.</div>
+          <div className="small muted">
+            Showing {rangedRows.length} points — {range.toUpperCase()} view.
+          </div>
         </div>
 
         <div className="card">
@@ -393,7 +488,6 @@ export default function StockDetails() {
       <div className="card">
         <div className="big" style={{ marginBottom: 8 }}>Social Mentions</div>
 
-        {/* Reddit links (kept exactly as-is) */}
         {!social.length ? (
           <div className="muted">No recent posts found.</div>
         ) : (
@@ -411,7 +505,6 @@ export default function StockDetails() {
           </ul>
         )}
 
-        {/* Twitter cashtag timeline (replaces Stocktwits) */}
         <div className="divider" style={{ margin: "12px 0" }} />
         <div className="big" style={{ marginBottom: 6 }}>Twitter Cashtag Feed</div>
         <TwitterPanel symbol={symbol} apiBase={API_BASE} />
