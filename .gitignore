@@ -34,4 +34,7 @@ yarn-error.log*
 .env*
 .flaskenv*
 !.env.project
-!.env.vault
+!.env.vaultclient/node_modules/
+server/node_modules/
+client/node_modules/
+server/node_modules/
