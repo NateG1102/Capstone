@@ -383,7 +383,7 @@ export default function StockDetails() {
         </div>
       </div>
 
-      {/* Chart + Prediction */}
+      {/* Chart */}
       <div className="grid">
         <div className="card">
           <div className="big" style={{ marginBottom: 8 }}>Price Trend</div>
@@ -424,21 +424,156 @@ export default function StockDetails() {
           </div>
         </div>
 
-        <div className="card">
+        {/* Prediction */}
+                <div className="card">
           <div className="big" style={{ marginBottom: 8 }}>Prediction</div>
-          <button onClick={runPrediction} disabled={predLoading} className="segbtn" style={{ marginBottom: 10 }}>
-            {predLoading ? 'Checking…' : 'Run quick trend check'}
-          </button>
-          {predError && <div className="small muted">{predError}</div>}
-          {pred && (
-            <ul className="list scroll" style={{ marginTop: 8 }}>
-              <li><strong>Trend:</strong> {pred.trend} <span className="small muted">(R² {pred.r2})</span></li>
-              <li><strong>Days used:</strong> {pred.daysUsed}</li>
-              <li><strong>Last close:</strong> ${pred.lastClose}</li>
-              <li><strong>Projected (≈5 days):</strong> ${pred.projectedPrice}</li>
-            </ul>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 8,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div className="small muted">
+              Uses the last ~90 trading days to estimate short-term direction.
+            </div>
+            <button
+              onClick={runPrediction}
+              disabled={predLoading}
+              className="segbtn"
+            >
+              {predLoading ? 'Running…' : 'Run trend check'}
+            </button>
+          </div>
+
+          {predError && (
+            <div
+              className="small"
+              style={{
+                marginBottom: 8,
+                padding: '6px 8px',
+                borderRadius: 6,
+                border: '1px solid var(--danger)',
+                background: 'rgba(220, 38, 38, 0.06)',
+              }}
+            >
+              {predError}
+            </div>
           )}
+
+          {pred && (
+            <div
+              style={{
+                marginTop: 4,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background:
+                  pred.trend === 'up'
+                    ? 'linear-gradient(135deg, rgba(16,185,129,0.14), rgba(15,23,42,0.02))'
+                    : pred.trend === 'down'
+                    ? 'linear-gradient(135deg, rgba(239,68,68,0.14), rgba(15,23,42,0.02))'
+                    : 'linear-gradient(135deg, rgba(148,163,184,0.14), rgba(15,23,42,0.02))',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: 6,
+                  gap: 8,
+                }}
+              >
+                <div className="small muted">Model signal</div>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    textTransform: 'capitalize',
+                    color:
+                      pred.trend === 'up'
+                        ? 'var(--success)'
+                        : pred.trend === 'down'
+                        ? 'var(--danger)'
+                        : 'var(--text)',
+                  }}
+                >
+                  {pred.trend || 'n/a'}
+                  {pred.r2 != null && (
+                    <span className="small muted" style={{ marginLeft: 8 }}>
+                      (R² {Number(pred.r2).toFixed(3)})
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                  fontSize: 13,
+                  marginTop: 4,
+                }}
+              >
+                <span
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    border: '1px solid var(--border)',
+                    background: 'rgba(15,23,42,0.02)',
+                  }}
+                >
+                  Days used: {pred.daysUsed}
+                </span>
+                <span
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    border: '1px solid var(--border)',
+                    background: 'rgba(15,23,42,0.02)',
+                  }}
+                >
+                  Last close: ${Number(pred.lastClose).toFixed(2)}
+                </span>
+                <span
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    border: '1px solid var(--border)',
+                    background: 'rgba(15,23,42,0.02)',
+                  }}
+                >
+                  {pred.horizonDays
+                    ? `${pred.horizonDays}-day projection`
+                    : '≈5-day projection'}
+                  : ${Number(pred.projectedPrice).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {!pred && !predLoading && !predError && (
+            <div className="small muted" style={{ marginTop: 4 }}>
+              Run the check to see a short-term projected price based on recent
+              trend.
+            </div>
+          )}
+
+          <div
+            className="small muted"
+            style={{ marginTop: 10, lineHeight: 1.4 }}
+          >
+            This is a simple trend-based model for learning only — it is not a
+            guarantee or financial advice. Always do your own research before
+            making investment decisions.
+          </div>
         </div>
+
 
         {/* News */}
         <div className="card">

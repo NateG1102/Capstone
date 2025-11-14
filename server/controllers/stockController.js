@@ -196,15 +196,31 @@ function labelTrend(slope, r2) {
 
 // GET /api/stocks/predict/:symbol
 // uses AV daily data to fit a simple line and label the trend
+// GET /api/stocks/predict/:symbol?horizon=5
+// Linear regression trend projection for ANY future horizon (1–90 days)
 async function getTrendPrediction(req, res) {
   try {
     const symbol = (req.params.symbol || 'AAPL').toUpperCase();
+
+    // allow client or chatbox to request future horizon
+    let horizon = Number(req.query.horizon || 5);
+    if (!Number.isFinite(horizon) || horizon <= 0) horizon = 5;
+    horizon = Math.min(Math.round(horizon), 90); // cap at 90 trading days
+
+    // fetch historical data
     const r = await axios.get(AV_BASE, {
-      params: { function:'TIME_SERIES_DAILY_ADJUSTED', symbol, outputsize:'compact', apikey: KEY }
+      params: {
+        function: 'TIME_SERIES_DAILY_ADJUSTED',
+        symbol,
+        outputsize: 'compact', // last ~100 days
+        apikey: KEY
+      }
     });
+
     if (limitHit(r.data)) {
       return res.status(429).json({ error: 'Alpha Vantage limit or error', detail: r.data });
     }
+
     const ts = r.data?.['Time Series (Daily)'];
     if (!ts) return res.status(404).json({ error: 'No historical data' });
 
@@ -212,28 +228,36 @@ async function getTrendPrediction(req, res) {
       .map(([date, v]) => ({ date, close: Number(v['4. close']) }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    const closes = rows.map(x => x.close).filter(Number.isFinite);
+    const closes = rows.map(r => r.close).filter(Number.isFinite);
+
+    // use the last 90 trading days
     const series = closes.slice(-90);
     if (series.length < 10) return res.status(400).json({ error: 'Not enough data to fit' });
 
-    // simple linear regression utilities you already added above:
+    // existing regression utilities
     const { slope, r2 } = linreg(series);
     const trend = labelTrend(slope, r2);
-    const lastClose = series[series.length - 1];
-    const projectedPrice = Number((lastClose + slope * 5).toFixed(2));
 
-    res.json({
+    const lastClose = series[series.length - 1];
+
+    // project forward horizon days using slope (dollars/day)
+    const projectedPrice = Number((lastClose + slope * horizon).toFixed(2));
+
+    return res.json({
       symbol,
+      horizonDays: horizon,
       daysUsed: series.length,
       trend,
       r2: Number(r2.toFixed(3)),
       lastClose,
       projectedPrice
     });
+
   } catch (e) {
-    res.status(500).json({ error: 'Prediction failed', detail: e?.message });
+    return res.status(500).json({ error: 'Prediction failed', detail: e?.message });
   }
 }
+
 
 
 // export handlers

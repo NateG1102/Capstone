@@ -9,6 +9,27 @@ const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const TEMP = Number(process.env.CHAT_TEMP || 0.3);
 const client = OPENAI_KEY ? new OpenAI({ apiKey: OPENAI_KEY }) : null;
 
+function extractHorizonDays(message) {
+  const m = String(message || '').toLowerCase();
+
+  // explicit "in X days"
+  let match = m.match(/(\d+)\s*day/);
+  if (match) return Math.min(parseInt(match[1], 10), 90);
+
+  // "X weeks" → 5 trading days per week
+  match = m.match(/(\d+)\s*week/);
+  if (match) return Math.min(parseInt(match[1], 10) * 5, 90);
+
+  // "X months" → ~21 trading days per month
+  match = m.match(/(\d+)\s*month/);
+  if (match) return Math.min(parseInt(match[1], 10) * 21, 90);
+
+  // vague short-term
+  if (/\b(next|coming)\s+(few\s+)?(days|week)\b/.test(m)) return 5;
+
+  return null;
+}
+
 // quick db logger
 async function logChat(symbol, role, content) {
   const sym = symbol ? String(symbol).toUpperCase() : null;
@@ -110,7 +131,21 @@ function isOnTopic(message, symbol) {
   if (!m) return false;
 
   const sym = String(symbol || '').toLowerCase();
+
+  // allow ultra-short follow-ups like "how much?" / "how many?" once a ticker is set
+  if (sym && /\bhow\s+much\b/i.test(m)) return true;
+  if (sym && /\bhow\s+many\b/i.test(m)) return true;
+
+  // if the actual ticker is mentioned, always treat as on-topic
   if (sym && new RegExp(`(?:^|\\b)${sym}(?:\\b|$)`, 'i').test(m)) return true;
+    
+  // allow prediction / forecast questions when a symbol is set
+  if (sym && /\b(predict|prediction|predictions?|forecast|projection|projected)\b/i.test(m)) {
+    return true;
+  }
+
+
+
 
   const escaped = Array.from(ONTOPIC).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   if (escaped.length) {
@@ -129,6 +164,7 @@ function isOnTopic(message, symbol) {
   return false;
 }
 
+
 /* main handler */
 // POST /api/chat  body: { message, symbol?, context? }
 exports.chat = async (req, res) => {
@@ -146,21 +182,46 @@ exports.chat = async (req, res) => {
     return res.json({ role: 'assistant', content });
   }
 
+    // try to pull in a horizon-specific projection to enrich context
+  const horizon = extractHorizonDays(message) || 5;
+  let predExtra = '';
+
+  try {
+    const url = `${process.env.API_BASE || 'http://127.0.0.1:8081'}/api/stocks/predict/${sym}?horizon=${horizon}`;
+    const p = await fetch(url).then(r => r.json());
+
+    if (p && p.projectedPrice) {
+      predExtra =
+        `Trend: ${p.trend || 'n/a'} | ` +
+        `${horizon}-day projection: $${p.projectedPrice} | ` +
+        `r²=${p.r2}`;
+    }
+  } catch (e) {
+    console.warn('[chat:pred]', e.message);
+  }
+
+  const mergedContext = [context, predExtra].filter(Boolean).join(' • ');
+
+
   // no key → keep usable (echo + context), still log
   if (!client) {
-    const content = `(${sym || 'N/A'}) ${message || 'No question.'}${context ? `  Context: ${context}.` : ''}`;
+    const content =
+      `(${sym || 'N/A'}) ${message || 'No question.'}` +
+      (mergedContext ? `  Context: ${mergedContext}.` : '');
     await logChat(sym, 'assistant', content);
     return res.json({ role: 'assistant', content });
   }
 
+
   try {
     const system = [
       `You help with questions about ticker ${sym || 'N/A'}.`,
-      context ? `Context: ${context}.` : '',
+      mergedContext ? `Context: ${mergedContext}.` : '',
       `Only answer about this stock, its company, or trading details.`,
       `If the user asks anything unrelated, remind them to stick to this stock.`,
       `Keep answers to 1–2 sentences. No financial advice.`
     ].filter(Boolean).join(' ');
+
 
     const resp = await client.chat.completions.create({
       model: MODEL,
@@ -175,6 +236,7 @@ exports.chat = async (req, res) => {
     await logChat(sym, 'assistant', content);
     return res.json({ role: 'assistant', content });
   } catch (err) {
+    console.error('[chat:raw]', err);     // add this
     console.error('[chat]', err?.response?.status || '', err?.message || err);
     if (err?.response?.data) console.error('[chat:data]', err.response.data);
 
