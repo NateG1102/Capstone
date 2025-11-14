@@ -1,12 +1,22 @@
 // src/pages/TrendlinePage.js
 import React, { useRef, useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
 import { fetchHistory } from "../services/stockAPI";
 
+// Timeframe → number of days
+const DAYS_BY_TIMEFRAME = {
+  "1W": 7,
+  "1M": 30,
+  "6M": 180,
+  "1Y": 365,
+};
+
 export default function TrendlinePage() {
   const { symbol: routeSymbol } = useParams();
+  const navigate = useNavigate();
+
   const initialSymbol = (routeSymbol || "AAPL").toUpperCase();
 
   const chartRef = useRef(null);
@@ -14,8 +24,11 @@ export default function TrendlinePage() {
 
   const [symbol, setSymbol] = useState(initialSymbol);
   const [searchInput, setSearchInput] = useState("");
-  const [rows, setRows] = useState([]);
 
+  const [allRows, setAllRows] = useState([]); 
+  const [rows, setRows] = useState([]);       
+
+  const [timeframe, setTimeframe] = useState("1M");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -23,37 +36,48 @@ export default function TrendlinePage() {
   const [startPoint, setStartPoint] = useState(null);
   const [endPoint, setEndPoint] = useState(null);
 
-  // Load history using the same parsing style as StockDetails
-  const loadHistory = async (sym) => {
+  function applyTimeframe(list, tf) {
+    if (!Array.isArray(list) || list.length === 0) return [];
+    const days = DAYS_BY_TIMEFRAME[tf] || 30;
+    if (list.length <= days) return list;
+    return list.slice(-days);
+  }
+
+  async function loadHistory(sym) {
     try {
       setLoading(true);
       setErrorMsg("");
 
       const res = await fetchHistory(sym);
       const data = res.data;
-      const hr = data?.rows ?? data ?? [];
+      const hr = data?.rows ?? [];
 
-      if (!Array.isArray(hr) || !hr.length) {
+      if (!Array.isArray(hr) || hr.length === 0) {
+        setAllRows([]);
         setRows([]);
         setErrorMsg("No chart data found for this ticker.");
       } else {
-        setRows(hr);
+        setAllRows(hr);
+        setRows(applyTimeframe(hr, timeframe));
       }
     } catch (err) {
-      setRows([]);
-      setErrorMsg("Ticker not found or backend unavailable.");
+      console.error("Trendline error:", err);
+      setErrorMsg("Failed to load historical data.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  // load initial ticker (from URL or default AAPL)
   useEffect(() => {
-    setSymbol(initialSymbol);
+    if (allRows.length) {
+      setRows(applyTimeframe(allRows, timeframe));
+    }
+  }, [timeframe, allRows]);
+
+  useEffect(() => {
     loadHistory(initialSymbol);
   }, [initialSymbol]);
 
-  // chart.js data
   const chartData =
     rows.length > 0
       ? {
@@ -63,19 +87,20 @@ export default function TrendlinePage() {
               label: `${symbol} Price`,
               data: rows.map((r) => r.close),
               borderColor: "rgba(75,192,192,1)",
-              tension: 0.4,
+              tension: 0.3,
+              pointRadius: 0,
             },
           ],
         }
       : null;
 
-  // draw the overlay trendline
   useEffect(() => {
     if (!overlayRef.current) return;
     const canvas = overlayRef.current;
     const ctx = canvas.getContext("2d");
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     if (startPoint && endPoint) {
       ctx.beginPath();
       ctx.moveTo(startPoint.x, startPoint.y);
@@ -104,16 +129,30 @@ export default function TrendlinePage() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (!searchInput.trim()) return;
+
     const sym = searchInput.trim().toUpperCase();
     setSymbol(sym);
     loadHistory(sym);
   };
 
   return (
-    <div className="container" style={{ padding: "24px", color: "white" }}>
-      <h1 className="text-3xl font-bold mb-6">
-        Trendline Tool for {symbol}
-      </h1>
+    <div className="container" style={{ padding: 24 }}>
+
+      {/* ⭐ HOME BUTTON */}
+      <button
+        className="segbtn"
+        onClick={() => navigate("/")}
+        style={{
+          padding: "6px 14px",
+          marginBottom: 16,
+          fontWeight: 600,
+          cursor: "pointer",
+        }}
+      >
+        ← Home
+      </button>
+
+      <h1 className="text-3xl font-bold mb-6">Trendline Tool for {symbol}</h1>
 
       {/* Search Bar */}
       <form
@@ -126,19 +165,20 @@ export default function TrendlinePage() {
           placeholder="Enter ticker (ex: TSLA)"
           style={{
             padding: "10px 14px",
-            borderRadius: "8px",
+            borderRadius: 8,
             border: "1px solid var(--border)",
             background: "var(--card)",
             color: "var(--text)",
             flex: 1,
           }}
         />
+
         <button
           type="submit"
           style={{
             padding: "10px 20px",
             background: "var(--grad1)",
-            borderRadius: "8px",
+            borderRadius: 8,
             color: "white",
             fontWeight: "bold",
             border: "none",
@@ -148,12 +188,27 @@ export default function TrendlinePage() {
         </button>
       </form>
 
+      {/* Timeframe Selector */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ marginRight: 8, fontWeight: 600 }}>Timeframe:</label>
+        <select
+          value={timeframe}
+          onChange={(e) => setTimeframe(e.target.value)}
+          style={{ padding: 8, borderRadius: 6 }}
+        >
+          <option value="1W">1 Week</option>
+          <option value="1M">1 Month</option>
+          <option value="6M">6 Months</option>
+          <option value="1Y">1 Year</option>
+        </select>
+      </div>
+
       {errorMsg && (
         <div
           className="card"
           style={{
             marginBottom: 20,
-            padding: "12px",
+            padding: 12,
             borderColor: "hsla(0,70%,60%,0.4)",
           }}
         >
@@ -163,26 +218,15 @@ export default function TrendlinePage() {
 
       {loading && <div className="muted">Loading chart…</div>}
 
-      {chartData && !loading && (
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "900px",
-            height: "450px",
-            background: "white",
-            borderRadius: "12px",
-            padding: "12px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-            marginTop: 20,
-          }}
-        >
-          <Line data={chartData} />
+      {!loading && chartData && (
+        <div style={{ position: "relative", height: 400 }}>
+          <Line ref={chartRef} data={chartData} />
 
+          {/* Drawing overlay */}
           <canvas
             ref={overlayRef}
-            width={900}
-            height={450}
+            width={800}
+            height={400}
             style={{
               position: "absolute",
               left: 0,

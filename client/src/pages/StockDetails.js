@@ -11,7 +11,8 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
 } from 'recharts';
 import { fetchSocial } from '../services/socialAPI';
-import { addToWishlist } from '../utils/cookies'; // <-- wishlist cookie helper
+
+// ❌ REMOVED: import { addToWishlist } from '../utils/cookies';
 
 // Local fallback names (A–Z common listings)
 const LOCAL_NAMES = {
@@ -101,8 +102,7 @@ export default function StockDetails() {
   const [company, setCompany] = useState('');
   const displayName = company || symbol;
 
-  // tiny note to confirm wishlist saves
-  const [savedNote, setSavedNote] = useState('');
+  // ❌ REMOVED: savedNote + wishlist state
 
   useEffect(() => {
     let isMounted = true;
@@ -124,8 +124,10 @@ export default function StockDetails() {
 
       if (!isMounted) return;
 
-      if (p.status === 'fulfilled') setPrice(p.value?.data || null);
-      else setPrice(null);
+      if (p.status === 'fulfilled') 
+        setPrice(p.value?.data || null);
+      else 
+        setPrice(null);
 
       if (h.status === 'fulfilled') {
         const hr = h.value?.data?.rows ?? h.value?.data ?? [];
@@ -155,8 +157,9 @@ export default function StockDetails() {
         setSocial([]);
       }
 
-      // Resolve company name from payloads or local map
+      // Resolve company name using multiple fallbacks
       let nameGuess = '';
+      
       if (p.status === 'fulfilled') {
         const pv = p.value?.data;
         nameGuess =
@@ -167,6 +170,7 @@ export default function StockDetails() {
           pv?.company ||
           '';
       }
+
       if (!nameGuess && h.status === 'fulfilled') {
         const hv = h.value?.data;
         const meta = hv?.meta || hv?.Meta || null;
@@ -179,7 +183,9 @@ export default function StockDetails() {
             '';
         }
       }
-      if (!nameGuess) nameGuess = LOCAL_NAMES[symbol] || '';
+
+      if (!nameGuess) 
+        nameGuess = LOCAL_NAMES[symbol] || '';
 
       if (isMounted) {
         setCompany(nameGuess);
@@ -193,12 +199,9 @@ export default function StockDetails() {
   // === Chart range ===
   const [range, setRange] = useState('1m');
 
-  // FIXED range logic: use latest date in data, not "today",
-  // and actually limit to 1w/1m/6m/1y based on that.
   const rangedRows = useMemo(() => {
     if (!rows?.length) return [];
 
-    // Normalize and ignore invalid dates
     const normalized = rows
       .map(r => {
         const d = r.date instanceof Date ? r.date : new Date(r.date);
@@ -208,10 +211,8 @@ export default function StockDetails() {
 
     if (!normalized.length) return [];
 
-    // Sort ascending by date
     normalized.sort((a, b) => a._date - b._date);
 
-    // Use the latest point in the history, not today's date
     const latest = normalized[normalized.length - 1]._date;
 
     const days =
@@ -242,7 +243,6 @@ export default function StockDetails() {
   };
   const fmtY = v => `$${v}`;
 
-  // === Tooltip helpers ===
   const fmtTooltipValue = (v) => `$${Number(v).toFixed(2)}`;
   const fmtTooltipDate = (label) => {
     if (!label) return '';
@@ -251,7 +251,6 @@ export default function StockDetails() {
     return d.toLocaleDateString(undefined, { dateStyle: 'medium' });
   };
 
-  // ⭐ Custom tooltip so date always shows above Close
   const CustomTooltip = ({ active, label, payload }) => {
     if (!active || !payload || !payload.length) return null;
     const value = payload[0]?.value;
@@ -280,7 +279,6 @@ export default function StockDetails() {
     );
   };
 
-  // prediction helper func
   async function runPrediction() {
     setPredLoading(true);
     setPredError('');
@@ -296,14 +294,7 @@ export default function StockDetails() {
     }
   }
 
-  // save to wishlist cookie
-  function handleAddWishlist() {
-    addToWishlist(symbol);
-    setSavedNote('Added!');
-    setTimeout(() => setSavedNote(''), 1200);
-  }
-
-  // Twitter cashtag embed panel (kept functionality; UI-contained)
+  // Twitter embed panel (unchanged)
   function TwitterPanel({ symbol, apiBase }) {
     const [html, setHtml] = useState("");
 
@@ -343,9 +334,12 @@ export default function StockDetails() {
 
   return (
     <div className="container">
+
       {/* Header */}
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display:'flex', alignItems:'baseline', gap:12, flexWrap:'wrap' }}>
+
+          {/* HOME BUTTON */}
           <button
             onClick={() => navigate('/')}
             className="segbtn"
@@ -355,17 +349,8 @@ export default function StockDetails() {
             Home
           </button>
 
-          <button
-            onClick={handleAddWishlist}
-            className="segbtn"
-            aria-label="Add to Wishlist"
-            title="Add to Wishlist"
-          >
-            + Wishlist
-          </button>
-          {savedNote && <span className="small muted">{savedNote}</span>}
+          {/* TRENDLINE TOOL */}
 
-          {/* Trendline Tool button for this symbol */}
           <button
             onClick={() => navigate(`/trendline/${symbol}`)}
             className="segbtn"
@@ -410,7 +395,6 @@ export default function StockDetails() {
             <RangeBtn value="1y">1Y</RangeBtn>
           </div>
 
-          {/* Slightly larger chart + padded Y-axis */}
           <div style={{ height: 380 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rangedRows}>
@@ -425,7 +409,6 @@ export default function StockDetails() {
                   tickFormatter={fmtY}
                   width={70}
                 />
-                {/* ⭐ Custom tooltip with date + close */}
                 <Tooltip content={<CustomTooltip />} />
                 <Line
                   type="monotone"
@@ -457,7 +440,7 @@ export default function StockDetails() {
           )}
         </div>
 
-        {/* News (clickable even when coming from DB) */}
+        {/* News */}
         <div className="card">
           <div className="big" style={{ marginBottom: 8 }}>News</div>
           {!news.length ? (
@@ -465,7 +448,7 @@ export default function StockDetails() {
           ) : (
             <ul className="list scroll">
               {news.slice(0,10).map((a, i) => {
-                const href = a.link || a.url || '#'; // <-- fix for DB records
+                const href = a.link || a.url || '#';
                 return (
                   <li key={i}>
                     <a href={href} target="_blank" rel="noreferrer">{a.title || href}</a>
@@ -557,9 +540,12 @@ export default function StockDetails() {
                 : `${symbol} | no price yet`
             }
           />
-          <div className="small muted">Answers are for learning only — not financial advice.</div>
+          <div className="small muted">
+            Answers are for learning only — not financial advice.
+          </div>
         </div>
       </div>
+
     </div>
   );
 }
